@@ -21,6 +21,29 @@
   };
 
   const dom = {};
+  const LANDSCAPE_PALETTE = [
+    { h: 186, s: 32, l: 45 },
+    { h: 166, s: 23, l: 52 },
+    { h: 201, s: 24, l: 39 },
+    { h: 42, s: 34, l: 68 },
+    { h: 26, s: 33, l: 60 },
+    { h: 214, s: 22, l: 36 }
+  ];
+
+  const landscapeAtmosphere = {
+    canvas: null,
+    ctx: null,
+    active: false,
+    rafId: 0,
+    wisps: [],
+    width: 0,
+    height: 0,
+    dpr: 1,
+    lastWashSync: 0,
+    reducedMotionQuery: null,
+    orientationQuery: null,
+    pointerQuery: null
+  };
 
   let mainTrackId = null;
   let ambienceTrackId = null;
@@ -45,6 +68,279 @@
   let mainGain = null;
   let ambienceSource = null;
   let ambienceGain = null;
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function lerp(start, end, progress) {
+    return start + (end - start) * progress;
+  }
+
+  function interpolateHue(start, end, progress) {
+    const delta = ((end - start + 540) % 360) - 180;
+    return (start + delta * progress + 360) % 360;
+  }
+
+  function getPaletteColor(position) {
+    const palette = LANDSCAPE_PALETTE;
+    const size = palette.length;
+    const normalized = ((position % size) + size) % size;
+    const index = Math.floor(normalized);
+    const nextIndex = (index + 1) % size;
+    const blend = normalized - index;
+    const current = palette[index];
+    const next = palette[nextIndex];
+
+    return {
+      h: interpolateHue(current.h, next.h, blend),
+      s: lerp(current.s, next.s, blend),
+      l: lerp(current.l, next.l, blend)
+    };
+  }
+
+  function toHsla(color, alpha) {
+    return 'hsla(' + color.h.toFixed(1) + ', ' + color.s.toFixed(1) + '%, ' + color.l.toFixed(1) + '%, ' + alpha.toFixed(3) + ')';
+  }
+
+  function randomBetween(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  function createLandscapeWisps() {
+    const count = 8;
+    const wisps = [];
+
+    for (let index = 0; index < count; index += 1) {
+      wisps.push({
+        anchorX: randomBetween(0.1, 0.92),
+        anchorY: randomBetween(0.12, 0.88),
+        radius: randomBetween(0.16, 0.32),
+        stretch: randomBetween(1.45, 2.65),
+        alpha: randomBetween(0.08, 0.18),
+        travelX: randomBetween(0.05, 0.14),
+        travelY: randomBetween(0.04, 0.12),
+        drift: randomBetween(0.000035, 0.000085),
+        driftOffset: randomBetween(0, Math.PI * 2),
+        rotation: randomBetween(-0.55, 0.55),
+        paletteOffset: randomBetween(0, LANDSCAPE_PALETTE.length),
+        pulse: randomBetween(0.00018, 0.00042)
+      });
+    }
+
+    return wisps;
+  }
+
+  function shouldShowLandscapeAtmosphere() {
+    const isLandscape = landscapeAtmosphere.orientationQuery
+      ? landscapeAtmosphere.orientationQuery.matches
+      : window.innerWidth > window.innerHeight;
+    const isTouchLike = landscapeAtmosphere.pointerQuery ? landscapeAtmosphere.pointerQuery.matches : true;
+    return isLandscape && (isTouchLike || window.innerHeight <= 720);
+  }
+
+  function resizeLandscapeAtmosphere(force) {
+    if (!dom.landscapeAtmosphere) return;
+    const canvas = dom.landscapeAtmosphere;
+    const width = Math.max(window.innerWidth, document.documentElement.clientWidth || 0);
+    const height = Math.max(window.innerHeight, document.documentElement.clientHeight || 0);
+    const dpr = clamp(window.devicePixelRatio || 1, 1, 1.75);
+
+    if (!force && landscapeAtmosphere.width === width && landscapeAtmosphere.height === height && landscapeAtmosphere.dpr === dpr) {
+      return;
+    }
+
+    landscapeAtmosphere.width = width;
+    landscapeAtmosphere.height = height;
+    landscapeAtmosphere.dpr = dpr;
+
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
+
+    if (landscapeAtmosphere.ctx) {
+      landscapeAtmosphere.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      landscapeAtmosphere.ctx.scale(dpr, dpr);
+    }
+  }
+
+  function syncLandscapeWash(time) {
+    if (!dom.root) return;
+    if (time - landscapeAtmosphere.lastWashSync < 140) return;
+    landscapeAtmosphere.lastWashSync = time;
+
+    const washA = getPaletteColor(time * 0.000055 + 0.2);
+    const washB = getPaletteColor(time * 0.00005 + 2.1);
+    const washC = getPaletteColor(time * 0.000045 + 4.25);
+
+    dom.root.style.setProperty('--landscape-wash-a', toHsla(washA, 0.24));
+    dom.root.style.setProperty('--landscape-wash-b', toHsla(washB, 0.22));
+    dom.root.style.setProperty('--landscape-wash-c', toHsla(washC, 0.18));
+  }
+
+  function drawLandscapeFlow(time) {
+    const ctx = landscapeAtmosphere.ctx;
+    if (!ctx) return;
+
+    const width = landscapeAtmosphere.width;
+    const height = landscapeAtmosphere.height;
+    ctx.clearRect(0, 0, width, height);
+
+    const skyA = getPaletteColor(time * 0.000028 + 0.4);
+    const skyB = getPaletteColor(time * 0.000032 + 2.4);
+    const skyC = getPaletteColor(time * 0.00003 + 4.15);
+
+    const field = ctx.createLinearGradient(0, 0, width, height);
+    field.addColorStop(0, toHsla(skyA, 0.14));
+    field.addColorStop(0.45, toHsla(skyB, 0.11));
+    field.addColorStop(1, toHsla(skyC, 0.08));
+    ctx.fillStyle = field;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.globalCompositeOperation = 'lighter';
+    landscapeAtmosphere.wisps.forEach((wisp, index) => {
+      const phase = time * wisp.drift + wisp.driftOffset;
+      const x = (wisp.anchorX + Math.sin(phase) * wisp.travelX) * width;
+      const y = (wisp.anchorY + Math.cos(phase * 0.9) * wisp.travelY) * height;
+      const radiusX = Math.max(width, height) * wisp.radius * (0.92 + Math.sin(time * wisp.pulse + index) * 0.16);
+      const radiusY = radiusX / wisp.stretch;
+      const rotation = wisp.rotation + Math.cos(time * wisp.drift * 1.45 + index) * 0.35;
+      const color = getPaletteColor(time * 0.00004 + wisp.paletteOffset + index * 0.18);
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rotation);
+      ctx.scale(1, radiusY / radiusX);
+
+      const gradient = ctx.createRadialGradient(radiusX * 0.1, 0, radiusX * 0.08, 0, 0, radiusX);
+      gradient.addColorStop(0, toHsla(color, wisp.alpha));
+      gradient.addColorStop(0.4, toHsla(color, wisp.alpha * 0.62));
+      gradient.addColorStop(0.78, toHsla(color, wisp.alpha * 0.22));
+      gradient.addColorStop(1, toHsla(color, 0));
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, radiusX, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    ctx.globalCompositeOperation = 'screen';
+    for (let index = 0; index < 4; index += 1) {
+      const baseY = height * (0.2 + index * 0.17) + Math.sin(time * 0.00013 + index * 1.3) * height * 0.035;
+      const gradient = ctx.createLinearGradient(0, baseY, width, baseY + height * 0.08);
+      const startColor = getPaletteColor(time * 0.00005 + index * 0.6 + 1.2);
+      const endColor = getPaletteColor(time * 0.000047 + index * 0.7 + 3.1);
+      gradient.addColorStop(0, toHsla(startColor, 0));
+      gradient.addColorStop(0.18, toHsla(startColor, 0.035));
+      gradient.addColorStop(0.5, toHsla(endColor, 0.12));
+      gradient.addColorStop(0.82, toHsla(endColor, 0.035));
+      gradient.addColorStop(1, toHsla(endColor, 0));
+
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = height * (0.024 + index * 0.0045);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-width * 0.08, baseY);
+
+      for (let step = 1; step <= 6; step += 1) {
+        const progress = step / 6;
+        const x = width * progress;
+        const sway = Math.sin(time * 0.00017 + index * 0.85 + step * 0.9) * height * 0.06;
+        const crest = Math.cos(time * 0.00011 + step * 0.7 + index) * height * 0.03;
+        const controlX = x - width * 0.08;
+        const controlY = baseY + sway * 1.2;
+        ctx.quadraticCurveTo(controlX, controlY, x, baseY + sway + crest);
+      }
+
+      ctx.stroke();
+    }
+
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderLandscapeAtmosphere(time) {
+    if (!landscapeAtmosphere.active) return;
+    drawLandscapeFlow(time || 0);
+    syncLandscapeWash(time || 0);
+    landscapeAtmosphere.rafId = window.requestAnimationFrame(renderLandscapeAtmosphere);
+  }
+
+  function stopLandscapeAtmosphere() {
+    if (landscapeAtmosphere.rafId) {
+      window.cancelAnimationFrame(landscapeAtmosphere.rafId);
+      landscapeAtmosphere.rafId = 0;
+    }
+    landscapeAtmosphere.active = false;
+    document.body.classList.remove('landscape-atmosphere-active');
+  }
+
+  function startLandscapeAtmosphere() {
+    if (!landscapeAtmosphere.ctx || !dom.landscapeAtmosphere) return;
+    resizeLandscapeAtmosphere(false);
+    if (!landscapeAtmosphere.wisps.length) {
+      landscapeAtmosphere.wisps = createLandscapeWisps();
+    }
+
+    if (landscapeAtmosphere.reducedMotionQuery && landscapeAtmosphere.reducedMotionQuery.matches) {
+      document.body.classList.add('landscape-atmosphere-active');
+      landscapeAtmosphere.active = false;
+      drawLandscapeFlow(16000);
+      syncLandscapeWash(16000);
+      return;
+    }
+
+    if (landscapeAtmosphere.active) return;
+    document.body.classList.add('landscape-atmosphere-active');
+    landscapeAtmosphere.active = true;
+    landscapeAtmosphere.rafId = window.requestAnimationFrame(renderLandscapeAtmosphere);
+  }
+
+  function syncLandscapeAtmosphere(forceResize) {
+    if (!dom.landscapeAtmosphere || !landscapeAtmosphere.ctx) return;
+    resizeLandscapeAtmosphere(!!forceResize);
+    if (document.visibilityState === 'hidden' || !shouldShowLandscapeAtmosphere()) {
+      stopLandscapeAtmosphere();
+      if (landscapeAtmosphere.ctx) {
+        landscapeAtmosphere.ctx.clearRect(0, 0, landscapeAtmosphere.width, landscapeAtmosphere.height);
+      }
+      return;
+    }
+    startLandscapeAtmosphere();
+  }
+
+  function bindMediaQueryListener(query, handler) {
+    if (!query) return;
+    if (query.addEventListener) {
+      query.addEventListener('change', handler);
+      return;
+    }
+    if (query.addListener) query.addListener(handler);
+  }
+
+  function initLandscapeAtmosphere() {
+    if (!dom.landscapeAtmosphere) return;
+
+    landscapeAtmosphere.canvas = dom.landscapeAtmosphere;
+    landscapeAtmosphere.ctx = landscapeAtmosphere.canvas.getContext('2d');
+    if (!landscapeAtmosphere.ctx) return;
+
+    landscapeAtmosphere.orientationQuery = window.matchMedia ? window.matchMedia('(orientation: landscape)') : null;
+    landscapeAtmosphere.pointerQuery = window.matchMedia ? window.matchMedia('(pointer: coarse)') : null;
+    landscapeAtmosphere.reducedMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    landscapeAtmosphere.wisps = createLandscapeWisps();
+
+    bindMediaQueryListener(landscapeAtmosphere.orientationQuery, () => syncLandscapeAtmosphere(true));
+    bindMediaQueryListener(landscapeAtmosphere.pointerQuery, () => syncLandscapeAtmosphere(true));
+    bindMediaQueryListener(landscapeAtmosphere.reducedMotionQuery, () => syncLandscapeAtmosphere(true));
+
+    window.addEventListener('resize', () => syncLandscapeAtmosphere(true));
+    window.addEventListener('orientationchange', () => syncLandscapeAtmosphere(true));
+    document.addEventListener('visibilitychange', () => syncLandscapeAtmosphere(false));
+
+    syncLandscapeAtmosphere(true);
+  }
 
   function ensureAudio() {
     if (!audioCtx) {
@@ -1080,6 +1376,8 @@
   }
 
   function cacheDom() {
+    dom.root = document.documentElement;
+    dom.landscapeAtmosphere = document.getElementById('landscapeAtmosphere');
     dom.playbackMode = document.getElementById('playbackMode');
     dom.selectedFrequencyTitle = document.getElementById('selectedFrequencyTitle');
     dom.selectedFrequencyDescription = document.getElementById('selectedFrequencyDescription');
@@ -1125,6 +1423,7 @@
     cacheDom();
     bindEvents();
     ensureMediaSessionHandlers();
+    initLandscapeAtmosphere();
     render();
     registerServiceWorker();
   }

@@ -3,6 +3,9 @@
   --display-font: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   --body-font: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
   --bg: #e9e3d8;
+  --landscape-wash-a: rgba(92, 150, 153, 0.18);
+  --landscape-wash-b: rgba(194, 169, 130, 0.16);
+  --landscape-wash-c: rgba(91, 112, 134, 0.14);
   --surface: rgba(253, 250, 245, 0.78);
   --surface-strong: rgba(255, 252, 248, 0.9);
   --surface-border: rgba(21, 52, 61, 0.12);
@@ -40,6 +43,7 @@ body {
     radial-gradient(circle at top left, rgba(137, 178, 175, 0.34), transparent 38%),
     radial-gradient(circle at 85% 12%, rgba(199, 177, 147, 0.34), transparent 32%),
     linear-gradient(180deg, #f1ece4 0%, var(--bg) 100%);
+  transition: background 700ms ease, color 300ms ease;
 }
 
 button,
@@ -56,6 +60,29 @@ button {
   inset: 0;
   overflow: hidden;
   pointer-events: none;
+  z-index: 0;
+}
+
+.page-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(120deg, rgba(15, 37, 45, 0), rgba(15, 37, 45, 0.06) 42%, rgba(15, 37, 45, 0.12)),
+    radial-gradient(circle at 50% 50%, rgba(255, 252, 246, 0.12), transparent 62%);
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+
+.landscape-atmosphere {
+  position: absolute;
+  inset: -10%;
+  width: 120%;
+  height: 120%;
+  opacity: 0;
+  transform: scale(1.02);
+  transition: opacity 600ms ease, transform 900ms ease;
+  mix-blend-mode: screen;
 }
 
 .backdrop-gradient {
@@ -63,6 +90,7 @@ button {
   border-radius: 999px;
   filter: blur(16px);
   opacity: 0.65;
+  transition: opacity 500ms ease, transform 900ms ease, background-color 800ms ease;
 }
 
 .gradient-a {
@@ -89,11 +117,46 @@ button {
   background: rgba(199, 177, 147, 0.24);
 }
 
+body.landscape-atmosphere-active {
+  background:
+    radial-gradient(circle at 14% 18%, var(--landscape-wash-a), transparent 34%),
+    radial-gradient(circle at 83% 24%, var(--landscape-wash-b), transparent 36%),
+    radial-gradient(circle at 48% 74%, var(--landscape-wash-c), transparent 34%),
+    linear-gradient(130deg, #10272e 0%, #16353d 42%, #1e4548 100%);
+}
+
+body.landscape-atmosphere-active .page-backdrop::after {
+  opacity: 1;
+}
+
+body.landscape-atmosphere-active .landscape-atmosphere {
+  opacity: 0.92;
+  transform: scale(1);
+}
+
+body.landscape-atmosphere-active .backdrop-gradient {
+  opacity: 0.22;
+  transform: scale(1.18);
+}
+
+body.landscape-atmosphere-active .gradient-a {
+  background: rgba(92, 150, 153, 0.16);
+}
+
+body.landscape-atmosphere-active .gradient-b {
+  background: rgba(182, 142, 109, 0.14);
+}
+
+body.landscape-atmosphere-active .gradient-c {
+  background: rgba(95, 124, 146, 0.16);
+}
+
 .app-shell {
   position: relative;
   width: min(1180px, calc(100% - 1.5rem));
   margin: 0 auto;
   padding: 1rem 0 2rem;
+  z-index: 1;
 }
 
 .panel {
@@ -110,6 +173,12 @@ button {
   animation: rise-in 420ms ease both;
 }
 
+body.landscape-atmosphere-active .panel {
+  background: rgba(252, 248, 240, 0.68);
+  border-color: rgba(255, 250, 243, 0.2);
+  box-shadow: 0 24px 68px rgba(9, 25, 31, 0.22);
+}
+
 .panel::after {
   content: "";
   position: absolute;
@@ -124,6 +193,12 @@ button {
     linear-gradient(135deg, rgba(253, 251, 246, 0.95), rgba(244, 237, 226, 0.78)),
     var(--surface);
   box-shadow: var(--shadow-lg);
+}
+
+body.landscape-atmosphere-active .hero {
+  background:
+    linear-gradient(135deg, rgba(252, 248, 241, 0.78), rgba(240, 232, 220, 0.54)),
+    rgba(255, 255, 255, 0.1);
 }
 
 .eyebrow,
@@ -549,6 +624,16 @@ input[type="range"] {
   color: var(--muted);
 }
 
+@media (orientation: landscape) and (max-height: 560px) {
+  .hero {
+    padding: 1.2rem;
+  }
+
+  .hero-copy {
+    max-width: 38rem;
+  }
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;
@@ -610,6 +695,13 @@ input[type="range"] {
   .ambience-card,
   .button {
     animation: none;
+    transition: none;
+  }
+
+  body,
+  .page-backdrop::after,
+  .landscape-atmosphere,
+  .backdrop-gradient {
     transition: none;
   }
 }
