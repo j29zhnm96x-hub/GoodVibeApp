@@ -144,17 +144,19 @@
   }
 
   function shouldShowLandscapeAtmosphere() {
-    const viewport = getViewportMetrics();
-    const isLandscape = landscapeAtmosphere.orientationQuery
-      ? landscapeAtmosphere.orientationQuery.matches || viewport.width > viewport.height
-      : viewport.width > viewport.height;
-    const touchCapable = (landscapeAtmosphere.pointerQuery && landscapeAtmosphere.pointerQuery.matches) || navigator.maxTouchPoints > 0;
-    return !!(isLandscape && touchCapable && viewport.height <= 720);
+    var viewport = getViewportMetrics();
+    var isLandscape = viewport.width > viewport.height;
+    if (!isLandscape && landscapeAtmosphere.orientationQuery) {
+      isLandscape = landscapeAtmosphere.orientationQuery.matches;
+    }
+    console.log('[GV-landscape] w=' + viewport.width + ' h=' + viewport.height + ' landscape=' + isLandscape);
+    return isLandscape;
   }
 
   function syncLandscapeModeClass() {
-    const isLandscapeMode = shouldShowLandscapeAtmosphere();
+    var isLandscapeMode = shouldShowLandscapeAtmosphere();
     document.body.classList.toggle('landscape-mode', isLandscapeMode);
+    console.log('[GV-landscape] landscape-mode class=' + isLandscapeMode);
     return isLandscapeMode;
   }
 
@@ -359,6 +361,7 @@
     }
 
     landscapeAtmosphere.wisps = createLandscapeWisps();
+    console.log('[GV-landscape] initLandscapeAtmosphere running, canvas=' + !!landscapeAtmosphere.ctx);
 
     bindMediaQueryListener(landscapeAtmosphere.orientationQuery, () => scheduleLandscapeAtmosphereSync(true));
     bindMediaQueryListener(landscapeAtmosphere.pointerQuery, () => scheduleLandscapeAtmosphereSync(true));
@@ -1463,6 +1466,7 @@
     initLandscapeAtmosphere();
     render();
     registerServiceWorker();
+    console.log('[GV] v5 loaded');
   }
 
   init();

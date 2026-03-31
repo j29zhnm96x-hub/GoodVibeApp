@@ -788,7 +788,7 @@ body.landscape-mode .card-actions {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-@media (orientation: landscape) and (max-height: 720px) {
+@media (orientation: landscape) and (max-height: 932px) {
   body {
     background:
       radial-gradient(circle at 14% 18%, rgba(92, 150, 153, 0.24), transparent 34%),
@@ -972,4 +972,17 @@ body.landscape-mode .card-actions {
   .gradient-c {
     animation: none;
   }
+}
+
+.version-badge {
+  position: fixed;
+  bottom: 4px;
+  right: 4px;
+  z-index: 9999;
+  padding: 2px 6px;
+  font-size: 10px;
+  color: rgba(255,255,255,0.6);
+  background: rgba(0,0,0,0.3);
+  border-radius: 4px;
+  pointer-events: none;
 }
