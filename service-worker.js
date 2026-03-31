@@ -1,10 +1,10 @@
-const SHELL_CACHE = 'goodvibes-shell-v1';
+const SHELL_CACHE = 'goodvibes-shell-v3';
 const SHELL_ASSETS = [
   './',
   './index.html',
-  './style.css',
-  './tracks.js',
-  './app.js',
+  './style.css?v=20260331c',
+  './tracks.js?v=20260331c',
+  './app.js?v=20260331c',
   './manifest.json',
   './icons/icon.svg',
   './icons/icon-192.png',
@@ -41,13 +41,33 @@ self.addEventListener('fetch', (event) => {
 
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() => caches.match('./index.html'))
+      fetch(request).then((response) => {
+        if (response && response.ok) {
+          const cloned = response.clone();
+          caches.open(SHELL_CACHE).then((cache) => cache.put('./index.html', cloned)).catch(() => {});
+        }
+        return response;
+      }).catch(() => caches.match('./index.html'))
     );
     return;
   }
 
-  const cacheableDestinations = ['script', 'style', 'image', 'manifest', 'font'];
-  if (!cacheableDestinations.includes(request.destination)) return;
+  const networkFirstDestinations = ['script', 'style', 'manifest'];
+  const cacheFirstDestinations = ['image', 'font'];
+
+  if (networkFirstDestinations.includes(request.destination)) {
+    event.respondWith(
+      fetch(request).then((response) => {
+        if (!response || !response.ok) return response;
+        const cloned = response.clone();
+        caches.open(SHELL_CACHE).then((cache) => cache.put(request, cloned)).catch(() => {});
+        return response;
+      }).catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  if (!cacheFirstDestinations.includes(request.destination)) return;
 
   event.respondWith(
     caches.match(request).then((cached) => {

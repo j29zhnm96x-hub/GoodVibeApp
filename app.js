@@ -135,8 +135,7 @@
     const isLandscape = landscapeAtmosphere.orientationQuery
       ? landscapeAtmosphere.orientationQuery.matches
       : window.innerWidth > window.innerHeight;
-    const isTouchLike = landscapeAtmosphere.pointerQuery ? landscapeAtmosphere.pointerQuery.matches : true;
-    return isLandscape && (isTouchLike || window.innerHeight <= 720);
+    return isLandscape;
   }
 
   function resizeLandscapeAtmosphere(force) {
@@ -1415,7 +1414,11 @@
   function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+      navigator.serviceWorker.register('service-worker.js').then((registration) => {
+        if (registration && registration.update) {
+          registration.update().catch(() => {});
+        }
+      }).catch(() => {});
     });
   }
 

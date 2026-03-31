@@ -74,11 +74,30 @@ button {
   transition: opacity 600ms ease;
 }
 
+.page-backdrop::before {
+  content: "";
+  position: absolute;
+  inset: -12%;
+  background:
+    radial-gradient(circle at 22% 24%, rgba(110, 170, 174, 0.18), transparent 26%),
+    radial-gradient(circle at 72% 28%, rgba(205, 180, 141, 0.18), transparent 30%),
+    radial-gradient(circle at 54% 78%, rgba(114, 134, 155, 0.14), transparent 28%);
+  opacity: 0;
+  filter: blur(18px);
+  transform: scale(1.06);
+  transition: opacity 600ms ease, transform 1200ms ease;
+}
+
 .landscape-atmosphere {
   position: absolute;
   inset: -10%;
   width: 120%;
   height: 120%;
+  background:
+    radial-gradient(circle at 18% 30%, rgba(117, 176, 179, 0.12), transparent 24%),
+    radial-gradient(circle at 82% 38%, rgba(208, 184, 143, 0.1), transparent 26%),
+    radial-gradient(circle at 46% 74%, rgba(119, 140, 160, 0.08), transparent 30%);
+  background-size: 120% 120%;
   opacity: 0;
   transform: scale(1.02);
   transition: opacity 600ms ease, transform 900ms ease;
@@ -127,6 +146,11 @@ body.landscape-atmosphere-active {
 
 body.landscape-atmosphere-active .page-backdrop::after {
   opacity: 1;
+}
+
+body.landscape-atmosphere-active .page-backdrop::before {
+  opacity: 1;
+  transform: scale(1);
 }
 
 body.landscape-atmosphere-active .landscape-atmosphere {
@@ -624,6 +648,158 @@ input[type="range"] {
   color: var(--muted);
 }
 
+@keyframes landscape-breathe {
+  0% {
+    opacity: 0.78;
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.06) translate3d(0.5%, -0.8%, 0);
+  }
+
+  100% {
+    opacity: 0.82;
+    transform: scale(1.02) translate3d(-0.6%, 0.7%, 0);
+  }
+}
+
+@keyframes cloud-drift-a {
+  0% {
+    transform: translate3d(-3%, 1%, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(2%, -2%, 0) scale(1.08);
+  }
+
+  100% {
+    transform: translate3d(4%, 1%, 0) scale(1.02);
+  }
+}
+
+@keyframes cloud-drift-b {
+  0% {
+    transform: translate3d(3%, -1%, 0) scale(1.04);
+  }
+
+  50% {
+    transform: translate3d(-2%, 2%, 0) scale(0.98);
+  }
+
+  100% {
+    transform: translate3d(-4%, -1%, 0) scale(1.08);
+  }
+}
+
+@keyframes wind-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 42%;
+  }
+
+  100% {
+    background-position: 0% 58%;
+  }
+}
+
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 600px) {
+  body {
+    background:
+      radial-gradient(circle at 14% 18%, rgba(92, 150, 153, 0.24), transparent 34%),
+      radial-gradient(circle at 83% 24%, rgba(194, 169, 130, 0.22), transparent 36%),
+      radial-gradient(circle at 48% 74%, rgba(91, 112, 134, 0.18), transparent 34%),
+      linear-gradient(130deg, #10272e 0%, #16353d 42%, #1e4548 100%);
+  }
+
+  .page-backdrop::after {
+    opacity: 1;
+    animation: landscape-breathe 18s ease-in-out infinite;
+  }
+
+  .page-backdrop::before {
+    opacity: 1;
+    transform: scale(1);
+    animation: cloud-drift-a 22s ease-in-out infinite alternate;
+  }
+
+  .landscape-atmosphere {
+    opacity: 0.68;
+    transform: scale(1);
+    animation: wind-shift 26s ease-in-out infinite;
+  }
+
+  .backdrop-gradient {
+    opacity: 0.34;
+    filter: blur(38px);
+  }
+
+  .gradient-a {
+    animation: cloud-drift-a 24s ease-in-out infinite alternate;
+  }
+
+  .gradient-b {
+    animation: cloud-drift-b 28s ease-in-out infinite alternate;
+  }
+
+  .gradient-c {
+    animation: cloud-drift-a 32s ease-in-out infinite alternate-reverse;
+  }
+
+  .app-shell {
+    width: min(100%, calc(100% - 1rem));
+    padding-top: 0.5rem;
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .card-grid,
+  .ambience-list {
+    grid-template-columns: 1fr;
+  }
+
+  .details-panel {
+    position: static;
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .panel {
+    margin-bottom: 0.75rem;
+    padding: 0.95rem;
+    background: rgba(252, 248, 240, 0.7);
+    border-color: rgba(255, 250, 243, 0.2);
+    box-shadow: 0 20px 54px rgba(9, 25, 31, 0.22);
+  }
+
+  .hero {
+    padding: 1rem;
+    background:
+      linear-gradient(135deg, rgba(252, 248, 241, 0.8), rgba(240, 232, 220, 0.58)),
+      rgba(255, 255, 255, 0.1);
+  }
+
+  .hero h1 {
+    font-size: clamp(2rem, 7vw, 3.4rem);
+  }
+
+  .hero-copy,
+  .hero-points {
+    display: none;
+  }
+
+  .transport-row,
+  .card-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (orientation: landscape) and (max-height: 560px) {
   .hero {
     padding: 1.2rem;
@@ -646,7 +822,7 @@ input[type="range"] {
   }
 }
 
-@media (min-width: 700px) {
+@media (min-width: 700px) and (min-height: 700px) {
   .app-shell {
     width: min(1220px, calc(100% - 2rem));
     padding-top: 1.2rem;
@@ -665,7 +841,7 @@ input[type="range"] {
   }
 }
 
-@media (min-width: 960px) {
+@media (min-width: 960px) and (min-height: 760px) {
   .layout {
     grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.9fr);
     align-items: start;
@@ -700,8 +876,18 @@ input[type="range"] {
 
   body,
   .page-backdrop::after,
+  .page-backdrop::before,
   .landscape-atmosphere,
   .backdrop-gradient {
     transition: none;
+  }
+
+  .page-backdrop::after,
+  .page-backdrop::before,
+  .landscape-atmosphere,
+  .gradient-a,
+  .gradient-b,
+  .gradient-c {
+    animation: none;
   }
 }
