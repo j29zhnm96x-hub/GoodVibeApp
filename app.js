@@ -39,6 +39,7 @@
     width: 0,
     height: 0,
     dpr: 1,
+    syncTimer: 0,
     lastWashSync: 0,
     reducedMotionQuery: null,
     orientationQuery: null,
@@ -107,6 +108,17 @@
     return min + Math.random() * (max - min);
   }
 
+  function getViewportMetrics() {
+    const viewport = window.visualViewport;
+    const width = viewport && viewport.width ? viewport.width : Math.max(window.innerWidth, document.documentElement.clientWidth || 0);
+    const height = viewport && viewport.height ? viewport.height : Math.max(window.innerHeight, document.documentElement.clientHeight || 0);
+
+    return {
+      width,
+      height
+    };
+  }
+
   function createLandscapeWisps() {
     const count = 8;
     const wisps = [];
@@ -132,17 +144,26 @@
   }
 
   function shouldShowLandscapeAtmosphere() {
+    const viewport = getViewportMetrics();
     const isLandscape = landscapeAtmosphere.orientationQuery
-      ? landscapeAtmosphere.orientationQuery.matches
-      : window.innerWidth > window.innerHeight;
-    return isLandscape;
+      ? landscapeAtmosphere.orientationQuery.matches || viewport.width > viewport.height
+      : viewport.width > viewport.height;
+    const touchCapable = (landscapeAtmosphere.pointerQuery && landscapeAtmosphere.pointerQuery.matches) || navigator.maxTouchPoints > 0;
+    return !!(isLandscape && touchCapable && viewport.height <= 720);
+  }
+
+  function syncLandscapeModeClass() {
+    const isLandscapeMode = shouldShowLandscapeAtmosphere();
+    document.body.classList.toggle('landscape-mode', isLandscapeMode);
+    return isLandscapeMode;
   }
 
   function resizeLandscapeAtmosphere(force) {
     if (!dom.landscapeAtmosphere) return;
     const canvas = dom.landscapeAtmosphere;
-    const width = Math.max(window.innerWidth, document.documentElement.clientWidth || 0);
-    const height = Math.max(window.innerHeight, document.documentElement.clientHeight || 0);
+    const viewport = getViewportMetrics();
+    const width = viewport.width;
+    const height = viewport.height;
     const dpr = clamp(window.devicePixelRatio || 1, 1, 1.75);
 
     if (!force && landscapeAtmosphere.width === width && landscapeAtmosphere.height === height && landscapeAtmosphere.dpr === dpr) {
@@ -297,9 +318,10 @@
   }
 
   function syncLandscapeAtmosphere(forceResize) {
+    const shouldShow = syncLandscapeModeClass();
     if (!dom.landscapeAtmosphere || !landscapeAtmosphere.ctx) return;
     resizeLandscapeAtmosphere(!!forceResize);
-    if (document.visibilityState === 'hidden' || !shouldShowLandscapeAtmosphere()) {
+    if (document.visibilityState === 'hidden' || !shouldShow) {
       stopLandscapeAtmosphere();
       if (landscapeAtmosphere.ctx) {
         landscapeAtmosphere.ctx.clearRect(0, 0, landscapeAtmosphere.width, landscapeAtmosphere.height);
@@ -307,6 +329,14 @@
       return;
     }
     startLandscapeAtmosphere();
+  }
+
+  function scheduleLandscapeAtmosphereSync(forceResize) {
+    syncLandscapeAtmosphere(forceResize);
+    clearTimeout(landscapeAtmosphere.syncTimer);
+    landscapeAtmosphere.syncTimer = window.setTimeout(() => {
+      syncLandscapeAtmosphere(true);
+    }, 280);
   }
 
   function bindMediaQueryListener(query, handler) {
@@ -319,26 +349,30 @@
   }
 
   function initLandscapeAtmosphere() {
-    if (!dom.landscapeAtmosphere) return;
-
-    landscapeAtmosphere.canvas = dom.landscapeAtmosphere;
-    landscapeAtmosphere.ctx = landscapeAtmosphere.canvas.getContext('2d');
-    if (!landscapeAtmosphere.ctx) return;
-
     landscapeAtmosphere.orientationQuery = window.matchMedia ? window.matchMedia('(orientation: landscape)') : null;
     landscapeAtmosphere.pointerQuery = window.matchMedia ? window.matchMedia('(pointer: coarse)') : null;
     landscapeAtmosphere.reducedMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+
+    if (dom.landscapeAtmosphere) {
+      landscapeAtmosphere.canvas = dom.landscapeAtmosphere;
+      landscapeAtmosphere.ctx = landscapeAtmosphere.canvas.getContext('2d');
+    }
+
     landscapeAtmosphere.wisps = createLandscapeWisps();
 
-    bindMediaQueryListener(landscapeAtmosphere.orientationQuery, () => syncLandscapeAtmosphere(true));
-    bindMediaQueryListener(landscapeAtmosphere.pointerQuery, () => syncLandscapeAtmosphere(true));
-    bindMediaQueryListener(landscapeAtmosphere.reducedMotionQuery, () => syncLandscapeAtmosphere(true));
+    bindMediaQueryListener(landscapeAtmosphere.orientationQuery, () => scheduleLandscapeAtmosphereSync(true));
+    bindMediaQueryListener(landscapeAtmosphere.pointerQuery, () => scheduleLandscapeAtmosphereSync(true));
+    bindMediaQueryListener(landscapeAtmosphere.reducedMotionQuery, () => scheduleLandscapeAtmosphereSync(true));
 
-    window.addEventListener('resize', () => syncLandscapeAtmosphere(true));
-    window.addEventListener('orientationchange', () => syncLandscapeAtmosphere(true));
-    document.addEventListener('visibilitychange', () => syncLandscapeAtmosphere(false));
+    window.addEventListener('resize', () => scheduleLandscapeAtmosphereSync(true));
+    window.addEventListener('orientationchange', () => scheduleLandscapeAtmosphereSync(true));
+    document.addEventListener('visibilitychange', () => scheduleLandscapeAtmosphereSync(false));
 
-    syncLandscapeAtmosphere(true);
+    if (window.visualViewport && window.visualViewport.addEventListener) {
+      window.visualViewport.addEventListener('resize', () => scheduleLandscapeAtmosphereSync(true));
+    }
+
+    scheduleLandscapeAtmosphereSync(true);
   }
 
   function ensureAudio() {

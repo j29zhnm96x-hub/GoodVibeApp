@@ -136,6 +136,7 @@ button {
   background: rgba(199, 177, 147, 0.24);
 }
 
+body.landscape-mode,
 body.landscape-atmosphere-active {
   background:
     radial-gradient(circle at 14% 18%, var(--landscape-wash-a), transparent 34%),
@@ -144,33 +145,40 @@ body.landscape-atmosphere-active {
     linear-gradient(130deg, #10272e 0%, #16353d 42%, #1e4548 100%);
 }
 
+body.landscape-mode .page-backdrop::after,
 body.landscape-atmosphere-active .page-backdrop::after {
   opacity: 1;
 }
 
+body.landscape-mode .page-backdrop::before,
 body.landscape-atmosphere-active .page-backdrop::before {
   opacity: 1;
   transform: scale(1);
 }
 
+body.landscape-mode .landscape-atmosphere,
 body.landscape-atmosphere-active .landscape-atmosphere {
-  opacity: 0.92;
+  opacity: 0.7;
   transform: scale(1);
 }
 
+body.landscape-mode .backdrop-gradient,
 body.landscape-atmosphere-active .backdrop-gradient {
   opacity: 0.22;
   transform: scale(1.18);
 }
 
+body.landscape-mode .gradient-a,
 body.landscape-atmosphere-active .gradient-a {
   background: rgba(92, 150, 153, 0.16);
 }
 
+body.landscape-mode .gradient-b,
 body.landscape-atmosphere-active .gradient-b {
   background: rgba(182, 142, 109, 0.14);
 }
 
+body.landscape-mode .gradient-c,
 body.landscape-atmosphere-active .gradient-c {
   background: rgba(95, 124, 146, 0.16);
 }
@@ -197,6 +205,7 @@ body.landscape-atmosphere-active .gradient-c {
   animation: rise-in 420ms ease both;
 }
 
+body.landscape-mode .panel,
 body.landscape-atmosphere-active .panel {
   background: rgba(252, 248, 240, 0.68);
   border-color: rgba(255, 250, 243, 0.2);
@@ -219,6 +228,7 @@ body.landscape-atmosphere-active .panel {
   box-shadow: var(--shadow-lg);
 }
 
+body.landscape-mode .hero,
 body.landscape-atmosphere-active .hero {
   background:
     linear-gradient(135deg, rgba(252, 248, 241, 0.78), rgba(240, 232, 220, 0.54)),
@@ -707,7 +717,78 @@ input[type="range"] {
   }
 }
 
-@media (orientation: landscape) and (pointer: coarse) and (max-height: 600px) {
+body.landscape-mode .page-backdrop::after {
+  animation: landscape-breathe 18s ease-in-out infinite;
+}
+
+body.landscape-mode .page-backdrop::before {
+  animation: cloud-drift-a 22s ease-in-out infinite alternate;
+}
+
+body.landscape-mode .landscape-atmosphere {
+  animation: wind-shift 26s ease-in-out infinite;
+}
+
+body.landscape-mode .backdrop-gradient {
+  filter: blur(38px);
+}
+
+body.landscape-mode .gradient-a {
+  animation: cloud-drift-a 24s ease-in-out infinite alternate;
+}
+
+body.landscape-mode .gradient-b {
+  animation: cloud-drift-b 28s ease-in-out infinite alternate;
+}
+
+body.landscape-mode .gradient-c {
+  animation: cloud-drift-a 32s ease-in-out infinite alternate-reverse;
+}
+
+body.landscape-mode .app-shell {
+  width: min(100%, calc(100% - 1rem));
+  padding-top: 0.5rem;
+}
+
+body.landscape-mode .layout {
+  grid-template-columns: 1fr;
+}
+
+body.landscape-mode .card-grid,
+body.landscape-mode .ambience-list {
+  grid-template-columns: 1fr;
+}
+
+body.landscape-mode .details-panel {
+  position: static;
+  grid-column: auto;
+  grid-row: auto;
+}
+
+body.landscape-mode .panel {
+  margin-bottom: 0.75rem;
+  padding: 0.95rem;
+}
+
+body.landscape-mode .hero {
+  padding: 1rem;
+}
+
+body.landscape-mode .hero h1 {
+  font-size: clamp(2rem, 7vw, 3.4rem);
+}
+
+body.landscape-mode .hero-copy,
+body.landscape-mode .hero-points {
+  display: none;
+}
+
+body.landscape-mode .transport-row,
+body.landscape-mode .card-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (orientation: landscape) and (max-height: 720px) {
   body {
     background:
       radial-gradient(circle at 14% 18%, rgba(92, 150, 153, 0.24), transparent 34%),
@@ -885,6 +966,7 @@ input[type="range"] {
   .page-backdrop::after,
   .page-backdrop::before,
   .landscape-atmosphere,
+  .page-backdrop::after,
   .gradient-a,
   .gradient-b,
   .gradient-c {
