@@ -1,10 +1,10 @@
-const SHELL_CACHE = 'goodvibes-shell-v5';
+const SHELL_CACHE = 'goodvibes-shell-v6';
 const SHELL_ASSETS = [
   './',
   './index.html',
-  './style.css?v=5',
-  './tracks.js?v=5',
-  './app.js?v=5',
+  './style.css?v=6',
+  './tracks.js?v=6',
+  './app.js?v=6',
   './manifest.json',
   './icons/icon.svg',
   './icons/icon-192.png',

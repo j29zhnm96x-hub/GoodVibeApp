@@ -21,7 +21,13 @@
   };
 
   const dom = {};
-  const LANDSCAPE_PALETTE = [
+
+  /* ── Landscape atmosphere (full-screen canvas on phone rotate) ── */
+  var vizCanvas = null;
+  var vizCtx = null;
+  var vizRafId = 0;
+
+  var LANDSCAPE_PALETTE = [
     { h: 186, s: 32, l: 45 },
     { h: 166, s: 23, l: 52 },
     { h: 201, s: 24, l: 39 },
@@ -30,21 +36,211 @@
     { h: 214, s: 22, l: 36 }
   ];
 
-  const landscapeAtmosphere = {
-    canvas: null,
-    ctx: null,
-    active: false,
-    rafId: 0,
-    wisps: [],
-    width: 0,
-    height: 0,
-    dpr: 1,
-    syncTimer: 0,
-    lastWashSync: 0,
-    reducedMotionQuery: null,
-    orientationQuery: null,
-    pointerQuery: null
-  };
+  function isMobileDevice() {
+    try {
+      if ('ontouchstart' in window && navigator.maxTouchPoints > 0) {
+        var w = screen.width || window.innerWidth;
+        if (w < 1024) return true;
+      }
+      return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+    } catch (e) {}
+    return false;
+  }
+
+  function isLandscape() {
+    try {
+      if (window.matchMedia) {
+        return window.matchMedia('(orientation: landscape)').matches;
+      }
+    } catch (e) {}
+    return window.innerWidth > window.innerHeight;
+  }
+
+  function ensureVizCanvas() {
+    if (!vizCanvas) vizCanvas = document.getElementById('viz');
+    if (vizCanvas && !vizCtx) vizCtx = vizCanvas.getContext('2d');
+  }
+
+  function resizeVizCanvas() {
+    ensureVizCanvas();
+    if (!vizCanvas || !vizCtx) return;
+
+    var dpr = window.devicePixelRatio || 1;
+    var cssWidth = Math.max(1, window.innerWidth);
+    var cssHeight = Math.max(1, window.innerHeight);
+    var pixelWidth = Math.max(1, Math.floor(cssWidth * dpr));
+    var pixelHeight = Math.max(1, Math.floor(cssHeight * dpr));
+
+    if (vizCanvas.width !== pixelWidth) vizCanvas.width = pixelWidth;
+    if (vizCanvas.height !== pixelHeight) vizCanvas.height = pixelHeight;
+
+    vizCtx.setTransform(1, 0, 0, 1, 0, 0);
+    vizCtx.scale(dpr, dpr);
+  }
+
+  function lerpColor(a, b, t) {
+    return {
+      h: a.h + ((((b.h - a.h) + 540) % 360) - 180) * t,
+      s: a.s + (b.s - a.s) * t,
+      l: a.l + (b.l - a.l) * t
+    };
+  }
+
+  function paletteAt(pos) {
+    var n = LANDSCAPE_PALETTE.length;
+    var p = ((pos % n) + n) % n;
+    var i = Math.floor(p);
+    return lerpColor(LANDSCAPE_PALETTE[i], LANDSCAPE_PALETTE[(i + 1) % n], p - i);
+  }
+
+  function hsla(c, a) {
+    return 'hsla(' + c.h.toFixed(1) + ',' + c.s.toFixed(1) + '%,' + c.l.toFixed(1) + '%,' + a.toFixed(3) + ')';
+  }
+
+  function drawMeditationFrame(ctx, width, height, timeMs) {
+    var t = timeMs * 0.00025;
+
+    ctx.clearRect(0, 0, width, height);
+
+    /* Dark meditation background gradient */
+    var bg = ctx.createLinearGradient(0, 0, 0, height);
+    var bgA = paletteAt(t * 0.12);
+    var bgB = paletteAt(t * 0.12 + 2);
+    bg.addColorStop(0, hsla({ h: bgA.h, s: bgA.s * 0.4, l: 8 }, 1));
+    bg.addColorStop(0.55, hsla({ h: (bgA.h + bgB.h) / 2, s: 18, l: 13 }, 1));
+    bg.addColorStop(1, hsla({ h: bgB.h, s: bgB.s * 0.5, l: 17 }, 1));
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, width, height);
+
+    /* Smoke / cloud wisps — soft wave layers */
+    ctx.save();
+    ctx.globalAlpha = 0.2;
+
+    for (var i = 0; i < 5; i += 1) {
+      var baseY = height * (0.18 + i * 0.15);
+      var amplitude = 24 + i * 10;
+      var frequency = 0.006 + i * 0.0012;
+      var speed = 0.7 + i * 0.18;
+      var phase = i * 1.7;
+      var waveColor = paletteAt(t * 0.15 + i * 0.9);
+
+      ctx.beginPath();
+      ctx.moveTo(0, height);
+
+      for (var x = 0; x <= width + 12; x += 12) {
+        var y = baseY + Math.sin(x * frequency + t * speed + phase) * amplitude;
+        ctx.lineTo(x, y);
+      }
+
+      ctx.lineTo(width, height);
+      ctx.closePath();
+
+      var fill = ctx.createLinearGradient(0, baseY - amplitude, 0, height);
+      fill.addColorStop(0, hsla(waveColor, 0.35));
+      fill.addColorStop(1, hsla(waveColor, 0));
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    /* Radial glow orbs — drifting meditation lights */
+    ctx.save();
+    ctx.globalAlpha = 0.14;
+
+    for (var j = 0; j < 12; j += 1) {
+      var orbX = ((j * 137.5) + timeMs * (0.01 + j * 0.0008)) % (width + 240) - 120;
+      var orbY = height * (0.15 + ((j * 0.073) % 0.7));
+      var radius = 80 + (j % 4) * 28;
+      var orbColor = paletteAt(t * 0.1 + j * 0.5);
+
+      var glow = ctx.createRadialGradient(orbX, orbY, 0, orbX, orbY, radius);
+      glow.addColorStop(0, hsla({ h: orbColor.h, s: orbColor.s, l: orbColor.l + 20 }, 0.55));
+      glow.addColorStop(1, hsla(orbColor, 0));
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(orbX, orbY, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  function startViz() {
+    ensureVizCanvas();
+    if (!vizCanvas || !vizCtx) return;
+    if (vizRafId) return;
+
+    var draw = function (timeMs) {
+      if (!isLandscape()) {
+        vizRafId = 0;
+        return;
+      }
+
+      resizeVizCanvas();
+
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+      if (!w || !h) {
+        vizRafId = requestAnimationFrame(draw);
+        return;
+      }
+
+      drawMeditationFrame(vizCtx, w, h, timeMs);
+      vizRafId = requestAnimationFrame(draw);
+    };
+
+    vizRafId = requestAnimationFrame(draw);
+  }
+
+  function stopViz() {
+    if (vizRafId) {
+      cancelAnimationFrame(vizRafId);
+      vizRafId = 0;
+    }
+    ensureVizCanvas();
+    if (vizCanvas && vizCtx) {
+      vizCtx.clearRect(0, 0, vizCanvas.width, vizCanvas.height);
+    }
+  }
+
+  function updateLandscapeState() {
+    var shell = document.querySelector('.app-shell');
+
+    if (!isMobileDevice()) {
+      document.documentElement.classList.remove('landscape');
+      if (shell) shell.removeAttribute('aria-hidden');
+      stopViz();
+      return;
+    }
+
+    var landscape = isLandscape();
+    document.documentElement.classList.toggle('landscape', landscape);
+
+    if (shell) {
+      if (landscape) shell.setAttribute('aria-hidden', 'true');
+      else shell.removeAttribute('aria-hidden');
+    }
+
+    if (landscape) startViz();
+    else stopViz();
+  }
+
+  function queueLandscapeUpdate(delayMs) {
+    setTimeout(function () { updateLandscapeState(); }, delayMs || 50);
+  }
+
+  function initLandscapeViz() {
+    window.addEventListener('resize', function () { updateLandscapeState(); });
+    window.addEventListener('orientationchange', function () { queueLandscapeUpdate(50); });
+    window.addEventListener('pageshow', function () { queueLandscapeUpdate(0); });
+    window.addEventListener('focus', function () { queueLandscapeUpdate(0); });
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) queueLandscapeUpdate(0);
+    });
+    queueLandscapeUpdate(0);
+  }
+  /* ── End landscape atmosphere ── */
 
   let mainTrackId = null;
   let ambienceTrackId = null;
@@ -69,314 +265,6 @@
   let mainGain = null;
   let ambienceSource = null;
   let ambienceGain = null;
-
-  function clamp(value, min, max) {
-    return Math.min(max, Math.max(min, value));
-  }
-
-  function lerp(start, end, progress) {
-    return start + (end - start) * progress;
-  }
-
-  function interpolateHue(start, end, progress) {
-    const delta = ((end - start + 540) % 360) - 180;
-    return (start + delta * progress + 360) % 360;
-  }
-
-  function getPaletteColor(position) {
-    const palette = LANDSCAPE_PALETTE;
-    const size = palette.length;
-    const normalized = ((position % size) + size) % size;
-    const index = Math.floor(normalized);
-    const nextIndex = (index + 1) % size;
-    const blend = normalized - index;
-    const current = palette[index];
-    const next = palette[nextIndex];
-
-    return {
-      h: interpolateHue(current.h, next.h, blend),
-      s: lerp(current.s, next.s, blend),
-      l: lerp(current.l, next.l, blend)
-    };
-  }
-
-  function toHsla(color, alpha) {
-    return 'hsla(' + color.h.toFixed(1) + ', ' + color.s.toFixed(1) + '%, ' + color.l.toFixed(1) + '%, ' + alpha.toFixed(3) + ')';
-  }
-
-  function randomBetween(min, max) {
-    return min + Math.random() * (max - min);
-  }
-
-  function getViewportMetrics() {
-    const viewport = window.visualViewport;
-    const width = viewport && viewport.width ? viewport.width : Math.max(window.innerWidth, document.documentElement.clientWidth || 0);
-    const height = viewport && viewport.height ? viewport.height : Math.max(window.innerHeight, document.documentElement.clientHeight || 0);
-
-    return {
-      width,
-      height
-    };
-  }
-
-  function createLandscapeWisps() {
-    const count = 8;
-    const wisps = [];
-
-    for (let index = 0; index < count; index += 1) {
-      wisps.push({
-        anchorX: randomBetween(0.1, 0.92),
-        anchorY: randomBetween(0.12, 0.88),
-        radius: randomBetween(0.16, 0.32),
-        stretch: randomBetween(1.45, 2.65),
-        alpha: randomBetween(0.08, 0.18),
-        travelX: randomBetween(0.05, 0.14),
-        travelY: randomBetween(0.04, 0.12),
-        drift: randomBetween(0.000035, 0.000085),
-        driftOffset: randomBetween(0, Math.PI * 2),
-        rotation: randomBetween(-0.55, 0.55),
-        paletteOffset: randomBetween(0, LANDSCAPE_PALETTE.length),
-        pulse: randomBetween(0.00018, 0.00042)
-      });
-    }
-
-    return wisps;
-  }
-
-  function shouldShowLandscapeAtmosphere() {
-    var viewport = getViewportMetrics();
-    var isLandscape = viewport.width > viewport.height;
-    if (!isLandscape && landscapeAtmosphere.orientationQuery) {
-      isLandscape = landscapeAtmosphere.orientationQuery.matches;
-    }
-    console.log('[GV-landscape] w=' + viewport.width + ' h=' + viewport.height + ' landscape=' + isLandscape);
-    return isLandscape;
-  }
-
-  function syncLandscapeModeClass() {
-    var isLandscapeMode = shouldShowLandscapeAtmosphere();
-    document.body.classList.toggle('landscape-mode', isLandscapeMode);
-    console.log('[GV-landscape] landscape-mode class=' + isLandscapeMode);
-    return isLandscapeMode;
-  }
-
-  function resizeLandscapeAtmosphere(force) {
-    if (!dom.landscapeAtmosphere) return;
-    const canvas = dom.landscapeAtmosphere;
-    const viewport = getViewportMetrics();
-    const width = viewport.width;
-    const height = viewport.height;
-    const dpr = clamp(window.devicePixelRatio || 1, 1, 1.75);
-
-    if (!force && landscapeAtmosphere.width === width && landscapeAtmosphere.height === height && landscapeAtmosphere.dpr === dpr) {
-      return;
-    }
-
-    landscapeAtmosphere.width = width;
-    landscapeAtmosphere.height = height;
-    landscapeAtmosphere.dpr = dpr;
-
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
-    canvas.style.width = width + 'px';
-    canvas.style.height = height + 'px';
-
-    if (landscapeAtmosphere.ctx) {
-      landscapeAtmosphere.ctx.setTransform(1, 0, 0, 1, 0, 0);
-      landscapeAtmosphere.ctx.scale(dpr, dpr);
-    }
-  }
-
-  function syncLandscapeWash(time) {
-    if (!dom.root) return;
-    if (time - landscapeAtmosphere.lastWashSync < 140) return;
-    landscapeAtmosphere.lastWashSync = time;
-
-    const washA = getPaletteColor(time * 0.000055 + 0.2);
-    const washB = getPaletteColor(time * 0.00005 + 2.1);
-    const washC = getPaletteColor(time * 0.000045 + 4.25);
-
-    dom.root.style.setProperty('--landscape-wash-a', toHsla(washA, 0.24));
-    dom.root.style.setProperty('--landscape-wash-b', toHsla(washB, 0.22));
-    dom.root.style.setProperty('--landscape-wash-c', toHsla(washC, 0.18));
-  }
-
-  function drawLandscapeFlow(time) {
-    const ctx = landscapeAtmosphere.ctx;
-    if (!ctx) return;
-
-    const width = landscapeAtmosphere.width;
-    const height = landscapeAtmosphere.height;
-    ctx.clearRect(0, 0, width, height);
-
-    const skyA = getPaletteColor(time * 0.000028 + 0.4);
-    const skyB = getPaletteColor(time * 0.000032 + 2.4);
-    const skyC = getPaletteColor(time * 0.00003 + 4.15);
-
-    const field = ctx.createLinearGradient(0, 0, width, height);
-    field.addColorStop(0, toHsla(skyA, 0.14));
-    field.addColorStop(0.45, toHsla(skyB, 0.11));
-    field.addColorStop(1, toHsla(skyC, 0.08));
-    ctx.fillStyle = field;
-    ctx.fillRect(0, 0, width, height);
-
-    ctx.globalCompositeOperation = 'lighter';
-    landscapeAtmosphere.wisps.forEach((wisp, index) => {
-      const phase = time * wisp.drift + wisp.driftOffset;
-      const x = (wisp.anchorX + Math.sin(phase) * wisp.travelX) * width;
-      const y = (wisp.anchorY + Math.cos(phase * 0.9) * wisp.travelY) * height;
-      const radiusX = Math.max(width, height) * wisp.radius * (0.92 + Math.sin(time * wisp.pulse + index) * 0.16);
-      const radiusY = radiusX / wisp.stretch;
-      const rotation = wisp.rotation + Math.cos(time * wisp.drift * 1.45 + index) * 0.35;
-      const color = getPaletteColor(time * 0.00004 + wisp.paletteOffset + index * 0.18);
-
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(rotation);
-      ctx.scale(1, radiusY / radiusX);
-
-      const gradient = ctx.createRadialGradient(radiusX * 0.1, 0, radiusX * 0.08, 0, 0, radiusX);
-      gradient.addColorStop(0, toHsla(color, wisp.alpha));
-      gradient.addColorStop(0.4, toHsla(color, wisp.alpha * 0.62));
-      gradient.addColorStop(0.78, toHsla(color, wisp.alpha * 0.22));
-      gradient.addColorStop(1, toHsla(color, 0));
-
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(0, 0, radiusX, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    });
-
-    ctx.globalCompositeOperation = 'screen';
-    for (let index = 0; index < 4; index += 1) {
-      const baseY = height * (0.2 + index * 0.17) + Math.sin(time * 0.00013 + index * 1.3) * height * 0.035;
-      const gradient = ctx.createLinearGradient(0, baseY, width, baseY + height * 0.08);
-      const startColor = getPaletteColor(time * 0.00005 + index * 0.6 + 1.2);
-      const endColor = getPaletteColor(time * 0.000047 + index * 0.7 + 3.1);
-      gradient.addColorStop(0, toHsla(startColor, 0));
-      gradient.addColorStop(0.18, toHsla(startColor, 0.035));
-      gradient.addColorStop(0.5, toHsla(endColor, 0.12));
-      gradient.addColorStop(0.82, toHsla(endColor, 0.035));
-      gradient.addColorStop(1, toHsla(endColor, 0));
-
-      ctx.strokeStyle = gradient;
-      ctx.lineWidth = height * (0.024 + index * 0.0045);
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(-width * 0.08, baseY);
-
-      for (let step = 1; step <= 6; step += 1) {
-        const progress = step / 6;
-        const x = width * progress;
-        const sway = Math.sin(time * 0.00017 + index * 0.85 + step * 0.9) * height * 0.06;
-        const crest = Math.cos(time * 0.00011 + step * 0.7 + index) * height * 0.03;
-        const controlX = x - width * 0.08;
-        const controlY = baseY + sway * 1.2;
-        ctx.quadraticCurveTo(controlX, controlY, x, baseY + sway + crest);
-      }
-
-      ctx.stroke();
-    }
-
-    ctx.globalCompositeOperation = 'source-over';
-  }
-
-  function renderLandscapeAtmosphere(time) {
-    if (!landscapeAtmosphere.active) return;
-    drawLandscapeFlow(time || 0);
-    syncLandscapeWash(time || 0);
-    landscapeAtmosphere.rafId = window.requestAnimationFrame(renderLandscapeAtmosphere);
-  }
-
-  function stopLandscapeAtmosphere() {
-    if (landscapeAtmosphere.rafId) {
-      window.cancelAnimationFrame(landscapeAtmosphere.rafId);
-      landscapeAtmosphere.rafId = 0;
-    }
-    landscapeAtmosphere.active = false;
-    document.body.classList.remove('landscape-atmosphere-active');
-  }
-
-  function startLandscapeAtmosphere() {
-    if (!landscapeAtmosphere.ctx || !dom.landscapeAtmosphere) return;
-    resizeLandscapeAtmosphere(false);
-    if (!landscapeAtmosphere.wisps.length) {
-      landscapeAtmosphere.wisps = createLandscapeWisps();
-    }
-
-    if (landscapeAtmosphere.reducedMotionQuery && landscapeAtmosphere.reducedMotionQuery.matches) {
-      document.body.classList.add('landscape-atmosphere-active');
-      landscapeAtmosphere.active = false;
-      drawLandscapeFlow(16000);
-      syncLandscapeWash(16000);
-      return;
-    }
-
-    if (landscapeAtmosphere.active) return;
-    document.body.classList.add('landscape-atmosphere-active');
-    landscapeAtmosphere.active = true;
-    landscapeAtmosphere.rafId = window.requestAnimationFrame(renderLandscapeAtmosphere);
-  }
-
-  function syncLandscapeAtmosphere(forceResize) {
-    const shouldShow = syncLandscapeModeClass();
-    if (!dom.landscapeAtmosphere || !landscapeAtmosphere.ctx) return;
-    resizeLandscapeAtmosphere(!!forceResize);
-    if (document.visibilityState === 'hidden' || !shouldShow) {
-      stopLandscapeAtmosphere();
-      if (landscapeAtmosphere.ctx) {
-        landscapeAtmosphere.ctx.clearRect(0, 0, landscapeAtmosphere.width, landscapeAtmosphere.height);
-      }
-      return;
-    }
-    startLandscapeAtmosphere();
-  }
-
-  function scheduleLandscapeAtmosphereSync(forceResize) {
-    syncLandscapeAtmosphere(forceResize);
-    clearTimeout(landscapeAtmosphere.syncTimer);
-    landscapeAtmosphere.syncTimer = window.setTimeout(() => {
-      syncLandscapeAtmosphere(true);
-    }, 280);
-  }
-
-  function bindMediaQueryListener(query, handler) {
-    if (!query) return;
-    if (query.addEventListener) {
-      query.addEventListener('change', handler);
-      return;
-    }
-    if (query.addListener) query.addListener(handler);
-  }
-
-  function initLandscapeAtmosphere() {
-    landscapeAtmosphere.orientationQuery = window.matchMedia ? window.matchMedia('(orientation: landscape)') : null;
-    landscapeAtmosphere.pointerQuery = window.matchMedia ? window.matchMedia('(pointer: coarse)') : null;
-    landscapeAtmosphere.reducedMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-
-    if (dom.landscapeAtmosphere) {
-      landscapeAtmosphere.canvas = dom.landscapeAtmosphere;
-      landscapeAtmosphere.ctx = landscapeAtmosphere.canvas.getContext('2d');
-    }
-
-    landscapeAtmosphere.wisps = createLandscapeWisps();
-    console.log('[GV-landscape] initLandscapeAtmosphere running, canvas=' + !!landscapeAtmosphere.ctx);
-
-    bindMediaQueryListener(landscapeAtmosphere.orientationQuery, () => scheduleLandscapeAtmosphereSync(true));
-    bindMediaQueryListener(landscapeAtmosphere.pointerQuery, () => scheduleLandscapeAtmosphereSync(true));
-    bindMediaQueryListener(landscapeAtmosphere.reducedMotionQuery, () => scheduleLandscapeAtmosphereSync(true));
-
-    window.addEventListener('resize', () => scheduleLandscapeAtmosphereSync(true));
-    window.addEventListener('orientationchange', () => scheduleLandscapeAtmosphereSync(true));
-    document.addEventListener('visibilitychange', () => scheduleLandscapeAtmosphereSync(false));
-
-    if (window.visualViewport && window.visualViewport.addEventListener) {
-      window.visualViewport.addEventListener('resize', () => scheduleLandscapeAtmosphereSync(true));
-    }
-
-    scheduleLandscapeAtmosphereSync(true);
-  }
 
   function ensureAudio() {
     if (!audioCtx) {
@@ -1413,7 +1301,6 @@
 
   function cacheDom() {
     dom.root = document.documentElement;
-    dom.landscapeAtmosphere = document.getElementById('landscapeAtmosphere');
     dom.playbackMode = document.getElementById('playbackMode');
     dom.selectedFrequencyTitle = document.getElementById('selectedFrequencyTitle');
     dom.selectedFrequencyDescription = document.getElementById('selectedFrequencyDescription');
@@ -1463,10 +1350,9 @@
     cacheDom();
     bindEvents();
     ensureMediaSessionHandlers();
-    initLandscapeAtmosphere();
+    initLandscapeViz();
     render();
     registerServiceWorker();
-    console.log('[GV] v5 loaded');
   }
 
   init();

@@ -3,9 +3,6 @@
   --display-font: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   --body-font: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
   --bg: #e9e3d8;
-  --landscape-wash-a: rgba(92, 150, 153, 0.18);
-  --landscape-wash-b: rgba(194, 169, 130, 0.16);
-  --landscape-wash-c: rgba(91, 112, 134, 0.14);
   --surface: rgba(253, 250, 245, 0.78);
   --surface-strong: rgba(255, 252, 248, 0.9);
   --surface-border: rgba(21, 52, 61, 0.12);
@@ -88,20 +85,31 @@ button {
   transition: opacity 600ms ease, transform 1200ms ease;
 }
 
-.landscape-atmosphere {
-  position: absolute;
-  inset: -10%;
-  width: 120%;
-  height: 120%;
-  background:
-    radial-gradient(circle at 18% 30%, rgba(117, 176, 179, 0.12), transparent 24%),
-    radial-gradient(circle at 82% 38%, rgba(208, 184, 143, 0.1), transparent 26%),
-    radial-gradient(circle at 46% 74%, rgba(119, 140, 160, 0.08), transparent 30%);
-  background-size: 120% 120%;
-  opacity: 0;
-  transform: scale(1.02);
-  transition: opacity 600ms ease, transform 900ms ease;
-  mix-blend-mode: screen;
+/* Landscape full-screen canvas — hidden by default */
+#viz {
+  display: none;
+}
+
+html.landscape body {
+  overflow: hidden;
+}
+
+html.landscape .app-shell {
+  display: none !important;
+}
+
+html.landscape .page-backdrop {
+  display: none !important;
+}
+
+html.landscape #viz {
+  display: block;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  pointer-events: none;
 }
 
 .backdrop-gradient {
@@ -136,53 +144,6 @@ button {
   background: rgba(199, 177, 147, 0.24);
 }
 
-body.landscape-mode,
-body.landscape-atmosphere-active {
-  background:
-    radial-gradient(circle at 14% 18%, var(--landscape-wash-a), transparent 34%),
-    radial-gradient(circle at 83% 24%, var(--landscape-wash-b), transparent 36%),
-    radial-gradient(circle at 48% 74%, var(--landscape-wash-c), transparent 34%),
-    linear-gradient(130deg, #10272e 0%, #16353d 42%, #1e4548 100%);
-}
-
-body.landscape-mode .page-backdrop::after,
-body.landscape-atmosphere-active .page-backdrop::after {
-  opacity: 1;
-}
-
-body.landscape-mode .page-backdrop::before,
-body.landscape-atmosphere-active .page-backdrop::before {
-  opacity: 1;
-  transform: scale(1);
-}
-
-body.landscape-mode .landscape-atmosphere,
-body.landscape-atmosphere-active .landscape-atmosphere {
-  opacity: 0.7;
-  transform: scale(1);
-}
-
-body.landscape-mode .backdrop-gradient,
-body.landscape-atmosphere-active .backdrop-gradient {
-  opacity: 0.22;
-  transform: scale(1.18);
-}
-
-body.landscape-mode .gradient-a,
-body.landscape-atmosphere-active .gradient-a {
-  background: rgba(92, 150, 153, 0.16);
-}
-
-body.landscape-mode .gradient-b,
-body.landscape-atmosphere-active .gradient-b {
-  background: rgba(182, 142, 109, 0.14);
-}
-
-body.landscape-mode .gradient-c,
-body.landscape-atmosphere-active .gradient-c {
-  background: rgba(95, 124, 146, 0.16);
-}
-
 .app-shell {
   position: relative;
   width: min(1180px, calc(100% - 1.5rem));
@@ -205,13 +166,6 @@ body.landscape-atmosphere-active .gradient-c {
   animation: rise-in 420ms ease both;
 }
 
-body.landscape-mode .panel,
-body.landscape-atmosphere-active .panel {
-  background: rgba(252, 248, 240, 0.68);
-  border-color: rgba(255, 250, 243, 0.2);
-  box-shadow: 0 24px 68px rgba(9, 25, 31, 0.22);
-}
-
 .panel::after {
   content: "";
   position: absolute;
@@ -226,13 +180,6 @@ body.landscape-atmosphere-active .panel {
     linear-gradient(135deg, rgba(253, 251, 246, 0.95), rgba(244, 237, 226, 0.78)),
     var(--surface);
   box-shadow: var(--shadow-lg);
-}
-
-body.landscape-mode .hero,
-body.landscape-atmosphere-active .hero {
-  background:
-    linear-gradient(135deg, rgba(252, 248, 241, 0.78), rgba(240, 232, 220, 0.54)),
-    rgba(255, 255, 255, 0.1);
 }
 
 .eyebrow,
@@ -658,239 +605,6 @@ input[type="range"] {
   color: var(--muted);
 }
 
-@keyframes landscape-breathe {
-  0% {
-    opacity: 0.78;
-    transform: scale(1) translate3d(0, 0, 0);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.06) translate3d(0.5%, -0.8%, 0);
-  }
-
-  100% {
-    opacity: 0.82;
-    transform: scale(1.02) translate3d(-0.6%, 0.7%, 0);
-  }
-}
-
-@keyframes cloud-drift-a {
-  0% {
-    transform: translate3d(-3%, 1%, 0) scale(1);
-  }
-
-  50% {
-    transform: translate3d(2%, -2%, 0) scale(1.08);
-  }
-
-  100% {
-    transform: translate3d(4%, 1%, 0) scale(1.02);
-  }
-}
-
-@keyframes cloud-drift-b {
-  0% {
-    transform: translate3d(3%, -1%, 0) scale(1.04);
-  }
-
-  50% {
-    transform: translate3d(-2%, 2%, 0) scale(0.98);
-  }
-
-  100% {
-    transform: translate3d(-4%, -1%, 0) scale(1.08);
-  }
-}
-
-@keyframes wind-shift {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 42%;
-  }
-
-  100% {
-    background-position: 0% 58%;
-  }
-}
-
-body.landscape-mode .page-backdrop::after {
-  animation: landscape-breathe 18s ease-in-out infinite;
-}
-
-body.landscape-mode .page-backdrop::before {
-  animation: cloud-drift-a 22s ease-in-out infinite alternate;
-}
-
-body.landscape-mode .landscape-atmosphere {
-  animation: wind-shift 26s ease-in-out infinite;
-}
-
-body.landscape-mode .backdrop-gradient {
-  filter: blur(38px);
-}
-
-body.landscape-mode .gradient-a {
-  animation: cloud-drift-a 24s ease-in-out infinite alternate;
-}
-
-body.landscape-mode .gradient-b {
-  animation: cloud-drift-b 28s ease-in-out infinite alternate;
-}
-
-body.landscape-mode .gradient-c {
-  animation: cloud-drift-a 32s ease-in-out infinite alternate-reverse;
-}
-
-body.landscape-mode .app-shell {
-  width: min(100%, calc(100% - 1rem));
-  padding-top: 0.5rem;
-}
-
-body.landscape-mode .layout {
-  grid-template-columns: 1fr;
-}
-
-body.landscape-mode .card-grid,
-body.landscape-mode .ambience-list {
-  grid-template-columns: 1fr;
-}
-
-body.landscape-mode .details-panel {
-  position: static;
-  grid-column: auto;
-  grid-row: auto;
-}
-
-body.landscape-mode .panel {
-  margin-bottom: 0.75rem;
-  padding: 0.95rem;
-}
-
-body.landscape-mode .hero {
-  padding: 1rem;
-}
-
-body.landscape-mode .hero h1 {
-  font-size: clamp(2rem, 7vw, 3.4rem);
-}
-
-body.landscape-mode .hero-copy,
-body.landscape-mode .hero-points {
-  display: none;
-}
-
-body.landscape-mode .transport-row,
-body.landscape-mode .card-actions {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-@media (orientation: landscape) and (max-height: 932px) {
-  body {
-    background:
-      radial-gradient(circle at 14% 18%, rgba(92, 150, 153, 0.24), transparent 34%),
-      radial-gradient(circle at 83% 24%, rgba(194, 169, 130, 0.22), transparent 36%),
-      radial-gradient(circle at 48% 74%, rgba(91, 112, 134, 0.18), transparent 34%),
-      linear-gradient(130deg, #10272e 0%, #16353d 42%, #1e4548 100%);
-  }
-
-  .page-backdrop::after {
-    opacity: 1;
-    animation: landscape-breathe 18s ease-in-out infinite;
-  }
-
-  .page-backdrop::before {
-    opacity: 1;
-    transform: scale(1);
-    animation: cloud-drift-a 22s ease-in-out infinite alternate;
-  }
-
-  .landscape-atmosphere {
-    opacity: 0.68;
-    transform: scale(1);
-    animation: wind-shift 26s ease-in-out infinite;
-  }
-
-  .backdrop-gradient {
-    opacity: 0.34;
-    filter: blur(38px);
-  }
-
-  .gradient-a {
-    animation: cloud-drift-a 24s ease-in-out infinite alternate;
-  }
-
-  .gradient-b {
-    animation: cloud-drift-b 28s ease-in-out infinite alternate;
-  }
-
-  .gradient-c {
-    animation: cloud-drift-a 32s ease-in-out infinite alternate-reverse;
-  }
-
-  .app-shell {
-    width: min(100%, calc(100% - 1rem));
-    padding-top: 0.5rem;
-  }
-
-  .layout {
-    grid-template-columns: 1fr;
-  }
-
-  .card-grid,
-  .ambience-list {
-    grid-template-columns: 1fr;
-  }
-
-  .details-panel {
-    position: static;
-    grid-column: auto;
-    grid-row: auto;
-  }
-
-  .panel {
-    margin-bottom: 0.75rem;
-    padding: 0.95rem;
-    background: rgba(252, 248, 240, 0.7);
-    border-color: rgba(255, 250, 243, 0.2);
-    box-shadow: 0 20px 54px rgba(9, 25, 31, 0.22);
-  }
-
-  .hero {
-    padding: 1rem;
-    background:
-      linear-gradient(135deg, rgba(252, 248, 241, 0.8), rgba(240, 232, 220, 0.58)),
-      rgba(255, 255, 255, 0.1);
-  }
-
-  .hero h1 {
-    font-size: clamp(2rem, 7vw, 3.4rem);
-  }
-
-  .hero-copy,
-  .hero-points {
-    display: none;
-  }
-
-  .transport-row,
-  .card-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (orientation: landscape) and (max-height: 560px) {
-  .hero {
-    padding: 1.2rem;
-  }
-
-  .hero-copy {
-    max-width: 38rem;
-  }
-}
-
 @keyframes rise-in {
   from {
     opacity: 0;
@@ -958,15 +672,12 @@ body.landscape-mode .card-actions {
   body,
   .page-backdrop::after,
   .page-backdrop::before,
-  .landscape-atmosphere,
   .backdrop-gradient {
     transition: none;
   }
 
   .page-backdrop::after,
   .page-backdrop::before,
-  .landscape-atmosphere,
-  .page-backdrop::after,
   .gradient-a,
   .gradient-b,
   .gradient-c {
