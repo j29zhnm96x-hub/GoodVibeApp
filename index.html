@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#15343d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GoodVibes">
+  <meta
+    name="description"
+    content="GoodVibes offers seamless frequency playback with optional ambience for relaxation, focus, and reflection."
+  >
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+  <title>GoodVibes</title>
+  <script src="tracks.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="page-backdrop" aria-hidden="true">
+    <div class="backdrop-gradient gradient-a"></div>
+    <div class="backdrop-gradient gradient-b"></div>
+    <div class="backdrop-gradient gradient-c"></div>
+  </div>
+
+  <div class="app-shell">
+    <header class="panel hero" aria-labelledby="app-title">
+      <p class="eyebrow">Wellness listening</p>
+      <h1 id="app-title">GoodVibes</h1>
+      <p class="subtitle">Seamless frequency playback with optional ambience.</p>
+      <p class="hero-copy">
+        A frequency-first PWA for calm, focus, meditation, and reflection. GoodVibes supports
+        relaxation and wellness routines. It is not medical treatment.
+      </p>
+      <ul class="hero-points" aria-label="Core features">
+        <li>Seamless looping frequency playback</li>
+        <li>Optional ambience layer with separate volume</li>
+        <li>Designed for iPhone background and lock-screen controls</li>
+      </ul>
+    </header>
+
+    <main class="layout">
+      <section class="panel player-panel" aria-labelledby="player-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Frequency-first playback</p>
+            <h2 id="player-heading">Player</h2>
+          </div>
+          <span id="playbackMode" class="pill">Idle</span>
+        </div>
+
+        <div class="current-track">
+          <p class="label">Selected frequency</p>
+          <h3 id="selectedFrequencyTitle">Choose a frequency</h3>
+          <p id="selectedFrequencyDescription" class="support">
+            Browse the library and choose a track to begin.
+          </p>
+        </div>
+
+        <div class="transport-row">
+          <button id="playMainButton" class="button button-primary" type="button">Play frequency</button>
+          <button id="stopMainButton" class="button button-secondary" type="button">Stop</button>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <label for="mainVolume">Frequency volume</label>
+            <span id="mainVolumeValue">90%</span>
+          </div>
+          <input id="mainVolume" type="range" min="0" max="1" step="0.01" value="0.9">
+        </div>
+
+        <div class="status-grid">
+          <div>
+            <p class="label">Playback state</p>
+            <p id="playerState" class="status-value">Idle</p>
+          </div>
+          <div>
+            <p class="label">Ambience</p>
+            <p id="ambienceState" class="status-value">Disabled</p>
+          </div>
+        </div>
+
+        <p id="statusMessage" class="status-message" role="status" aria-live="polite">Ready when you are.</p>
+      </section>
+
+      <section class="panel browser-panel" aria-labelledby="library-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Focused library</p>
+            <h2 id="library-heading">Frequency browser</h2>
+          </div>
+          <span id="resultCount" class="pill subtle">0 results</span>
+        </div>
+
+        <div class="search-block">
+          <label for="searchInput">Search frequencies</label>
+          <input
+            id="searchInput"
+            type="search"
+            inputmode="search"
+            autocomplete="off"
+            placeholder="Search by Hz, feeling, or description"
+          >
+        </div>
+
+        <div id="frequencyList" class="card-grid" role="list" aria-label="Frequency library"></div>
+        <p id="emptyState" class="empty-state" hidden>No frequencies match your search.</p>
+      </section>
+
+      <section class="panel ambience-panel" aria-labelledby="ambience-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Optional secondary layer</p>
+            <h2 id="ambience-heading">Ambience</h2>
+          </div>
+          <span class="pill subtle">Optional</span>
+        </div>
+
+        <div class="toggle-card">
+          <label class="toggle" for="ambienceEnabled">
+            <input id="ambienceEnabled" type="checkbox">
+            <span>Enable ambience layer</span>
+          </label>
+          <p class="support">
+            Ambience stays separate from the main frequency and can continue while you switch to a new frequency.
+          </p>
+        </div>
+
+        <div class="current-track ambience-summary">
+          <p class="label">Selected ambience</p>
+          <h3 id="selectedAmbienceTitle">Choose an ambience</h3>
+          <p id="selectedAmbienceDescription" class="support">
+            Rain, noise, and soft soundscapes can be extended later by editing the ambience metadata array.
+          </p>
+        </div>
+
+        <div class="transport-row compact-row">
+          <button id="startAmbienceButton" class="button button-secondary" type="button">Start ambience</button>
+          <button id="stopAmbienceButton" class="button button-ghost" type="button">Stop ambience</button>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <label for="ambienceVolume">Ambience volume</label>
+            <span id="ambienceVolumeValue">35%</span>
+          </div>
+          <input id="ambienceVolume" type="range" min="0" max="1" step="0.01" value="0.35">
+        </div>
+
+        <div id="ambienceList" class="ambience-list" role="list" aria-label="Ambience library"></div>
+      </section>
+
+      <aside class="panel details-panel" aria-labelledby="details-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Readable details</p>
+            <h2 id="details-heading">Selected frequency</h2>
+          </div>
+          <span id="selectionBadge" class="pill subtle">No selection</span>
+        </div>
+
+        <p id="detailTitle" class="detail-title">Choose a frequency</p>
+        <p id="detailDescription" class="detail-description">
+          Descriptions remain visible here so the selected frequency is easy to read without opening extra panels.
+        </p>
+
+        <dl class="detail-grid">
+          <div>
+            <dt>Frequency id</dt>
+            <dd id="detailId">-</dd>
+          </div>
+          <div>
+            <dt>Asset path</dt>
+            <dd id="detailPath">audio/frequencies/</dd>
+          </div>
+          <div>
+            <dt>Availability</dt>
+            <dd id="detailAvailability">Waiting to load</dd>
+          </div>
+          <div>
+            <dt>Pairing</dt>
+            <dd id="detailPairing">Optional ambience can be layered underneath.</dd>
+          </div>
+        </dl>
+      </aside>
+    </main>
+
+    <footer class="panel footer-note">
+      <p>
+        GoodVibes is for relaxation, focus, meditation, and general wellness support. It does not offer
+        medical advice, diagnosis, or treatment.
+      </p>
+    </footer>
+  </div>
+
+  <audio id="audioOut" hidden aria-hidden="true"></audio>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">GoodVibes icon</title>
+  <desc id="desc">A calm rounded-square icon with ocean and sand tones, concentric rings, and the initials GV.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#15343d" />
+      <stop offset="100%" stop-color="#2d6971" />
+    </linearGradient>
+    <linearGradient id="glow" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f2e8d7" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#d1b494" stop-opacity="0.75" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#bg)" />
+  <circle cx="256" cy="256" r="150" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="18" />
+  <circle cx="256" cy="256" r="108" fill="none" stroke="url(#glow)" stroke-width="24" />
+  <path d="M162 288c28 40 70 60 126 60 54 0 96-20 124-60" fill="none" stroke="#f3eadc" stroke-linecap="round" stroke-width="22" />
+  <path d="M177 210c22-26 49-39 81-39 36 0 66 14 91 43" fill="none" stroke="#d8baa3" stroke-linecap="round" stroke-width="18" />
+  <text x="256" y="280" text-anchor="middle" font-family="Palatino Linotype, Iowan Old Style, serif" font-size="108" fill="#f8f3eb">GV</text>
+</svg>
