@@ -88,10 +88,17 @@ button {
 /* Landscape full-screen canvas — hidden by default */
 #viz {
   display: none;
+  background: #000;
 }
 
+html.landscape,
 html.landscape body {
   overflow: hidden;
+  background: #000 !important;
+}
+
+html.landscape .version-badge {
+  display: none;
 }
 
 html.landscape .app-shell {

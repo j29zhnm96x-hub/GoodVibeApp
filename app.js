@@ -98,72 +98,207 @@
   }
 
   function drawMeditationFrame(ctx, width, height, timeMs) {
-    var t = timeMs * 0.00025;
+    var t = timeMs * 0.001;
 
-    ctx.clearRect(0, 0, width, height);
-
-    /* Dark meditation background gradient */
-    var bg = ctx.createLinearGradient(0, 0, 0, height);
-    var bgA = paletteAt(t * 0.12);
-    var bgB = paletteAt(t * 0.12 + 2);
-    bg.addColorStop(0, hsla({ h: bgA.h, s: bgA.s * 0.4, l: 8 }, 1));
-    bg.addColorStop(0.55, hsla({ h: (bgA.h + bgB.h) / 2, s: 18, l: 13 }, 1));
-    bg.addColorStop(1, hsla({ h: bgB.h, s: bgB.s * 0.5, l: 17 }, 1));
-    ctx.fillStyle = bg;
+    /* ── Black void ── */
+    ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, width, height);
 
-    /* Smoke / cloud wisps — soft wave layers */
+    /* ── Living nebula sky — two colour poles slowly rotate ── */
+    var poleA = paletteAt(t * 0.008);
+    var poleB = paletteAt(t * 0.008 + 3);
+    var nebA_x = width * (0.3 + Math.sin(t * 0.013) * 0.2);
+    var nebA_y = height * (0.25 + Math.cos(t * 0.01) * 0.15);
+    var nebB_x = width * (0.7 + Math.sin(t * 0.011 + 2) * 0.2);
+    var nebB_y = height * (0.7 + Math.cos(t * 0.009 + 1) * 0.15);
+    var nebR = Math.max(width, height) * 0.7;
+
     ctx.save();
-    ctx.globalAlpha = 0.2;
+    ctx.globalCompositeOperation = 'screen';
+    var gA = ctx.createRadialGradient(nebA_x, nebA_y, 0, nebA_x, nebA_y, nebR);
+    gA.addColorStop(0, hsla({ h: poleA.h, s: poleA.s * 0.9, l: 18 }, 0.22));
+    gA.addColorStop(0.35, hsla({ h: poleA.h, s: poleA.s * 0.6, l: 10 }, 0.10));
+    gA.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gA;
+    ctx.fillRect(0, 0, width, height);
 
-    for (var i = 0; i < 5; i += 1) {
-      var baseY = height * (0.18 + i * 0.15);
-      var amplitude = 24 + i * 10;
-      var frequency = 0.006 + i * 0.0012;
-      var speed = 0.7 + i * 0.18;
-      var phase = i * 1.7;
-      var waveColor = paletteAt(t * 0.15 + i * 0.9);
+    var gB = ctx.createRadialGradient(nebB_x, nebB_y, 0, nebB_x, nebB_y, nebR);
+    gB.addColorStop(0, hsla({ h: poleB.h, s: poleB.s * 0.9, l: 16 }, 0.18));
+    gB.addColorStop(0.35, hsla({ h: poleB.h, s: poleB.s * 0.5, l: 8 }, 0.08));
+    gB.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gB;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
 
+    /* ── Stars — tiny twinkling points ── */
+    ctx.save();
+    for (var s = 0; s < 60; s += 1) {
+      var sd = s * 13.37 + 1.1;
+      var sx = ((Math.sin(sd) * 43758.5453) % 1 + 1) % 1;
+      var sy = ((Math.cos(sd * 1.7) * 43758.5453) % 1 + 1) % 1;
+      var twinkle = 0.2 + Math.sin(t * (0.4 + (s % 5) * 0.15) + sd) * 0.2;
+      twinkle = Math.max(0, twinkle);
+      var starSize = 0.5 + ((s * 3) % 7) * 0.18;
+      ctx.globalAlpha = twinkle;
+      ctx.fillStyle = s % 8 === 0 ? '#ffe8c0' : s % 5 === 0 ? '#c0e8ff' : '#e0e8f0';
       ctx.beginPath();
-      ctx.moveTo(0, height);
+      ctx.arc(sx * width, sy * height, starSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
 
-      for (var x = 0; x <= width + 12; x += 12) {
-        var y = baseY + Math.sin(x * frequency + t * speed + phase) * amplitude;
-        ctx.lineTo(x, y);
+    /* ── Horizontal mist bands — 9 layers, dramatic speed difference ──
+         Back layers (i=0): speed 0.06  — barely drifting
+         Front layers (i=8): speed 1.8  — flowing fast past you
+         This creates a powerful parallax / flying-through-clouds feel */
+    var mist = [
+      { y: 0.92, amp: 40, freq: 0.0015, speed: 0.06,  a: 0.04, l: 16 },
+      { y: 0.84, amp: 50, freq: 0.002,  speed: 0.12,  a: 0.06, l: 14 },
+      { y: 0.74, amp: 45, freq: 0.003,  speed: 0.22,  a: 0.09, l: 12 },
+      { y: 0.64, amp: 38, freq: 0.004,  speed: 0.38,  a: 0.12, l: 10 },
+      { y: 0.54, amp: 32, freq: 0.005,  speed: 0.60,  a: 0.14, l: 9  },
+      { y: 0.44, amp: 26, freq: 0.007,  speed: 0.85,  a: 0.12, l: 8  },
+      { y: 0.35, amp: 20, freq: 0.009,  speed: 1.10,  a: 0.09, l: 7  },
+      { y: 0.27, amp: 16, freq: 0.012,  speed: 1.45,  a: 0.06, l: 6  },
+      { y: 0.20, amp: 12, freq: 0.016,  speed: 1.80,  a: 0.04, l: 5  }
+    ];
+
+    for (var i = 0; i < mist.length; i += 1) {
+      var m = mist[i];
+      var by = height * m.y;
+      var mc = paletteAt(t * 0.012 + i * 0.7);
+      var ma = m.a + Math.sin(t * 0.07 + i * 1.3) * 0.02;
+
+      ctx.save();
+      ctx.globalAlpha = Math.max(0.01, ma);
+
+      /* Two sub-passes per layer for volume / thickness */
+      for (var sub = 0; sub < 2; sub += 1) {
+        var subOff = sub * m.amp * 0.35;
+        var subAlpha = sub === 0 ? 1 : 0.5;
+        ctx.globalAlpha = Math.max(0.01, ma * subAlpha);
+
+        ctx.beginPath();
+        ctx.moveTo(-10, height + 10);
+
+        for (var x = -10; x <= width + 12; x += 5) {
+          var w1 = Math.sin(x * m.freq + t * m.speed + i * 1.7) * m.amp;
+          var w2 = Math.sin(x * m.freq * 0.4 + t * m.speed * 0.6 + i * 2.9) * m.amp * 0.55;
+          var w3 = Math.sin(x * m.freq * 2.3 + t * m.speed * 1.4 + i * 0.5) * m.amp * 0.18;
+          var w4 = Math.sin(x * m.freq * 0.15 + t * m.speed * 0.25 + i * 4.1) * m.amp * 0.7;
+          ctx.lineTo(x, by + w1 + w2 + w3 + w4 + subOff);
+        }
+
+        ctx.lineTo(width + 12, height + 10);
+        ctx.closePath();
+
+        var mfill = ctx.createLinearGradient(0, by - m.amp * 1.5, 0, by + height * 0.25);
+        var mTop = { h: mc.h, s: mc.s * 0.8, l: mc.l + m.l };
+        mfill.addColorStop(0, hsla(mTop, 0.75));
+        mfill.addColorStop(0.2, hsla(mc, 0.45));
+        mfill.addColorStop(0.55, hsla({ h: mc.h, s: mc.s * 0.4, l: mc.l * 0.5 }, 0.15));
+        mfill.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = mfill;
+        ctx.fill();
       }
 
-      ctx.lineTo(width, height);
-      ctx.closePath();
-
-      var fill = ctx.createLinearGradient(0, baseY - amplitude, 0, height);
-      fill.addColorStop(0, hsla(waveColor, 0.35));
-      fill.addColorStop(1, hsla(waveColor, 0));
-      ctx.fillStyle = fill;
-      ctx.fill();
+      ctx.restore();
     }
 
-    ctx.restore();
-
-    /* Radial glow orbs — drifting meditation lights */
+    /* ── Glowing horizon line — soft light where sky meets mist ── */
     ctx.save();
-    ctx.globalAlpha = 0.14;
+    var hCol = paletteAt(t * 0.01 + 2);
+    var horizonY = height * 0.55 + Math.sin(t * 0.03) * height * 0.02;
+    var hGlow = ctx.createRadialGradient(width * 0.5, horizonY, 0, width * 0.5, horizonY, width * 0.6);
+    hGlow.addColorStop(0, hsla({ h: hCol.h, s: hCol.s, l: hCol.l + 20 }, 0.08));
+    hGlow.addColorStop(0.5, hsla({ h: hCol.h, s: hCol.s * 0.5, l: hCol.l + 10 }, 0.03));
+    hGlow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = hGlow;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
 
-    for (var j = 0; j < 12; j += 1) {
-      var orbX = ((j * 137.5) + timeMs * (0.01 + j * 0.0008)) % (width + 240) - 120;
-      var orbY = height * (0.15 + ((j * 0.073) % 0.7));
-      var radius = 80 + (j % 4) * 28;
-      var orbColor = paletteAt(t * 0.1 + j * 0.5);
+    /* ── Rising light motes — 40 particles drifting upward slowly ── */
+    ctx.save();
+    for (var p = 0; p < 40; p += 1) {
+      var sd2 = p * 7.31 + 3.7;
+      var baseX = ((Math.sin(sd2) * 10000) % 1 + 1) % 1;
+      var cycleT = 28 + (p % 9) * 6;
+      var phase = ((t + sd2 * 3) % cycleT) / cycleT;
 
-      var glow = ctx.createRadialGradient(orbX, orbY, 0, orbX, orbY, radius);
-      glow.addColorStop(0, hsla({ h: orbColor.h, s: orbColor.s, l: orbColor.l + 20 }, 0.55));
-      glow.addColorStop(1, hsla(orbColor, 0));
-      ctx.fillStyle = glow;
+      var px = baseX * width + Math.sin(t * 0.05 + sd2) * width * 0.06;
+      var py = height * (1.1 - phase * 1.3);
+
+      var fadeIn = Math.min(1, phase * 5);
+      var fadeOut = Math.min(1, (1 - phase) * 4);
+      var pAlpha = fadeIn * fadeOut * (0.12 + Math.sin(t * 0.6 + sd2 * 2) * 0.08);
+      pAlpha = Math.max(0, pAlpha);
+
+      if (pAlpha < 0.01) continue;
+
+      var pCol = paletteAt(t * 0.01 + p * 0.35);
+      var pSize = 1.2 + Math.sin(sd2 * 4.3) * 0.8;
+      var glowR = pSize * (5 + Math.sin(t * 0.3 + p) * 2);
+
+      var pg = ctx.createRadialGradient(px, py, 0, px, py, glowR);
+      pg.addColorStop(0, hsla({ h: pCol.h, s: pCol.s, l: Math.min(88, pCol.l + 35) }, pAlpha * 0.7));
+      pg.addColorStop(0.5, hsla({ h: pCol.h, s: pCol.s * 0.5, l: pCol.l + 15 }, pAlpha * 0.2));
+      pg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = pg;
+      ctx.fillRect(px - glowR, py - glowR, glowR * 2, glowR * 2);
+
+      ctx.fillStyle = hsla({ h: pCol.h, s: pCol.s * 0.4, l: Math.min(94, pCol.l + 45) }, pAlpha);
       ctx.beginPath();
-      ctx.arc(orbX, orbY, radius, 0, Math.PI * 2);
+      ctx.arc(px, py, pSize, 0, Math.PI * 2);
       ctx.fill();
     }
-
     ctx.restore();
+
+    /* ── Breathing core — slow pulsing radiance ── */
+    ctx.save();
+    var breath = Math.sin(t * 0.065) * 0.5 + 0.5;
+    var bCol = paletteAt(t * 0.014 + 1.5);
+    var bR = Math.min(width, height) * (0.18 + breath * 0.14);
+    var bcx = width * 0.5 + Math.sin(t * 0.017) * width * 0.05;
+    var bcy = height * 0.44 + Math.cos(t * 0.012) * height * 0.06;
+
+    ctx.globalCompositeOperation = 'screen';
+    var bg1 = ctx.createRadialGradient(bcx, bcy, 0, bcx, bcy, bR * 3);
+    bg1.addColorStop(0, hsla({ h: bCol.h, s: bCol.s * 0.7, l: bCol.l + 18 }, 0.07 * breath));
+    bg1.addColorStop(0.3, hsla({ h: bCol.h, s: bCol.s * 0.4, l: bCol.l + 8 }, 0.03 * breath));
+    bg1.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = bg1;
+    ctx.fillRect(0, 0, width, height);
+
+    var bg2 = ctx.createRadialGradient(bcx, bcy, 0, bcx, bcy, bR);
+    bg2.addColorStop(0, hsla({ h: bCol.h, s: bCol.s, l: Math.min(82, bCol.l + 28) }, 0.14 * breath));
+    bg2.addColorStop(0.45, hsla({ h: bCol.h, s: bCol.s * 0.6, l: bCol.l + 12 }, 0.05 * breath));
+    bg2.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = bg2;
+    ctx.beginPath();
+    ctx.arc(bcx, bcy, bR, 0, Math.PI * 2);
+    ctx.fill();
+
+    /* ── Soft cross-flare from the core ── */
+    var flareAlpha = 0.04 * breath;
+    var flareW = bR * 0.08;
+    var flareH = bR * 2.5;
+    ctx.globalAlpha = flareAlpha;
+    ctx.fillStyle = hsla({ h: bCol.h, s: bCol.s * 0.3, l: Math.min(90, bCol.l + 35) }, 1);
+    ctx.fillRect(bcx - flareW * 0.5, bcy - flareH * 0.5, flareW, flareH);
+    ctx.fillRect(bcx - flareH * 0.5, bcy - flareW * 0.5, flareH, flareW);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    /* ── Vignette — curved darkness at edges ── */
+    var vig = ctx.createRadialGradient(
+      width * 0.5, height * 0.5, Math.min(width, height) * 0.28,
+      width * 0.5, height * 0.5, Math.max(width, height) * 0.78
+    );
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(0.6, 'rgba(0,0,0,0.15)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, width, height);
   }
 
   function startViz() {
