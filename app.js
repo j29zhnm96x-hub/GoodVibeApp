@@ -373,7 +373,11 @@
   let mainLoadToken = 0;
   let ambienceLoadToken = 0;
 
-  let wakeLockSentinel = null;
+  let _wakeLock = null;
+  let _noSleep = null;
+  let _noSleepEnabled = false;
+  let _onVisibilityChange = null;
+  let keepAwake = JSON.parse(localStorage.getItem('gv_keepAwake') || 'false');
 
   let audioCtx;
   let master;
@@ -1498,59 +1502,90 @@
   }
 
   async function requestWakeLock() {
-    if (!('wakeLock' in navigator)) return false;
     try {
-      wakeLockSentinel = await navigator.wakeLock.request('screen');
-      wakeLockSentinel.addEventListener('release', function() {
-        wakeLockSentinel = null;
-        var checkbox = document.getElementById('stayAwake');
-        if (checkbox) checkbox.checked = false;
-      });
-      return true;
-    } catch {
-      wakeLockSentinel = null;
-      return false;
+      if ('wakeLock' in navigator) {
+        _wakeLock = await navigator.wakeLock.request('screen');
+        _wakeLock.addEventListener('release', function() { _wakeLock = null; });
+        return _wakeLock;
+      }
+      // Fallback for iOS Safari via NoSleep.js (requires user gesture)
+      if (typeof window !== 'undefined' && window.NoSleep) {
+        if (!_noSleep) _noSleep = new window.NoSleep();
+        if (!_noSleepEnabled) {
+          await _noSleep.enable();
+          _noSleepEnabled = true;
+        }
+        return _noSleep;
+      }
+      return null;
+    } catch (e) {
+      return null;
     }
   }
 
-  function releaseWakeLock() {
-    if (wakeLockSentinel) {
-      try { wakeLockSentinel.release(); } catch {}
-      wakeLockSentinel = null;
+  async function releaseWakeLock() {
+    try {
+      if (_wakeLock) { await _wakeLock.release(); _wakeLock = null; }
+      if (_noSleep && _noSleepEnabled) { await _noSleep.disable(); _noSleepEnabled = false; }
+    } catch (e) {}
+  }
+
+  async function updateKeepAwakeBinding() {
+    // Remove old listener if any
+    if (_onVisibilityChange) {
+      document.removeEventListener('visibilitychange', _onVisibilityChange);
     }
+    // If disabled, release and stop
+    if (!keepAwake) {
+      await releaseWakeLock();
+      return;
+    }
+    // Keep screen awake whenever enabled and tab is visible
+    _onVisibilityChange = async function() {
+      if (document.visibilityState === 'visible' && keepAwake) {
+        await requestWakeLock();
+      } else {
+        await releaseWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', _onVisibilityChange);
+    await _onVisibilityChange();
   }
 
   function initWakeLock() {
     var checkbox = document.getElementById('stayAwake');
     if (!checkbox) return;
 
-    if (!('wakeLock' in navigator)) {
-      checkbox.disabled = true;
-      var support = checkbox.closest('.wake-lock-card');
-      if (support) {
-        var note = support.querySelector('.support');
-        if (note) note.textContent = 'Wake Lock is not supported in this browser.';
+    // Restore persisted state
+    checkbox.checked = keepAwake;
+
+    // Bind checkbox
+    checkbox.addEventListener('change', async function() {
+      keepAwake = !!checkbox.checked;
+      localStorage.setItem('gv_keepAwake', JSON.stringify(keepAwake));
+      if (!('wakeLock' in navigator) && !(window.NoSleep)) {
+        var card = checkbox.closest('.wake-lock-card');
+        if (card) {
+          var note = card.querySelector('.support');
+          if (note) note.textContent = 'Screen Wake Lock is not supported on this browser.';
+        }
       }
-      return;
+      await updateKeepAwakeBinding();
+    });
+
+    // Start binding
+    updateKeepAwakeBinding();
+
+    // iOS Safari fallback: NoSleep requires a real user gesture
+    // If keepAwake was already on from a previous session, register
+    // one-shot gesture listeners so NoSleep can activate
+    if (keepAwake) {
+      var firstInteract = async function() {
+        await requestWakeLock();
+      };
+      window.addEventListener('touchstart', firstInteract, { once: true, passive: true });
+      window.addEventListener('click', firstInteract, { once: true });
     }
-
-    checkbox.addEventListener('change', function() {
-      if (checkbox.checked) {
-        requestWakeLock().then(function(ok) {
-          if (!ok) checkbox.checked = false;
-        });
-      } else {
-        releaseWakeLock();
-      }
-    });
-
-    document.addEventListener('visibilitychange', function() {
-      if (document.visibilityState === 'visible' && checkbox.checked && !wakeLockSentinel) {
-        requestWakeLock().then(function(ok) {
-          if (!ok) checkbox.checked = false;
-        });
-      }
-    });
   }
 
   function initTabs() {
