@@ -601,6 +601,43 @@ input[type="range"] {
   color: var(--deep-ocean);
 }
 
+.card-details-wrap {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 300ms ease, opacity 300ms ease;
+  opacity: 0;
+}
+
+.track-card.details-open .card-details-wrap {
+  max-height: 20rem;
+  opacity: 1;
+}
+
+.card-details {
+  margin: 0.5rem 0 0;
+  line-height: 1.65;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.read-more-btn {
+  display: inline-block;
+  margin-top: 0.4rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ocean);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.read-more-btn:hover {
+  text-decoration: underline;
+}
+
 .footer-note {
   margin-bottom: 0;
   background: rgba(255, 252, 248, 0.74);
@@ -661,6 +698,19 @@ input[type="range"] {
     position: sticky;
     top: 1rem;
   }
+
+  /* On desktop, always show all panels and hide tab bar */
+  .tab-bar {
+    display: none;
+  }
+
+  .tab-mode [data-tab-panel] {
+    display: block;
+  }
+
+  .tab-mode .layout {
+    padding-bottom: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -703,4 +753,67 @@ input[type="range"] {
   background: rgba(0,0,0,0.3);
   border-radius: 4px;
   pointer-events: none;
+}
+
+/* ── Tab bar ── */
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 900;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  height: 3.6rem;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: rgba(253, 250, 245, 0.92);
+  border-top: 1px solid var(--surface-border);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.tab-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.18rem;
+  padding: 0.3rem 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.tab-btn.is-active {
+  color: var(--ocean);
+}
+
+.tab-icon {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+/* Tab panels — hidden on mobile when not active */
+.tab-mode [data-tab-panel] {
+  display: none;
+}
+
+.tab-mode [data-tab-panel].tab-visible {
+  display: block;
+}
+
+/* Padding for fixed tab bar on mobile */
+.tab-mode .layout {
+  padding-bottom: 4.2rem;
+}
+
+.tab-mode .version-badge {
+  bottom: 4rem;
 }

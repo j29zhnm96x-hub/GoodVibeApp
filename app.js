@@ -278,15 +278,6 @@
     ctx.arc(bcx, bcy, bR, 0, Math.PI * 2);
     ctx.fill();
 
-    /* ── Soft cross-flare from the core ── */
-    var flareAlpha = 0.04 * breath;
-    var flareW = bR * 0.08;
-    var flareH = bR * 2.5;
-    ctx.globalAlpha = flareAlpha;
-    ctx.fillStyle = hsla({ h: bCol.h, s: bCol.s * 0.3, l: Math.min(90, bCol.l + 35) }, 1);
-    ctx.fillRect(bcx - flareW * 0.5, bcy - flareH * 0.5, flareW, flareH);
-    ctx.fillRect(bcx - flareH * 0.5, bcy - flareW * 0.5, flareH, flareW);
-    ctx.globalAlpha = 1;
     ctx.restore();
 
     /* ── Vignette — curved darkness at edges ── */
@@ -690,7 +681,7 @@
     if (!query) return FREQUENCY_TRACKS;
 
     return FREQUENCY_TRACKS.filter((track) => {
-      const searchable = [track.title, track.id, track.description].join(' ').toLowerCase();
+      const searchable = [track.title, track.id, track.description, track.details || ''].join(' ').toLowerCase();
       return searchable.includes(query);
     });
   }
@@ -1073,10 +1064,10 @@
     mainTrackId = null;
 
     fadeOutAndStopSource(sourceToStop, gainToStop, 0.05);
-    syncMasterOutputLevel({ ramp: 0.02, ignoreMain: true });
+    syncMasterOutputLevel({ ramp: 0.08, ignoreMain: true });
 
     if (settings.updateIntent !== false) syncPlaybackIntentFromSources();
-    scheduleAudioOutputIdleCheck(60);
+    scheduleAudioOutputIdleCheck(150);
     syncMediaSessionMetadata();
     syncMediaSessionPlaybackState();
     render();
@@ -1096,10 +1087,10 @@
     if (settings.disableToggle) state.ambienceEnabled = false;
 
     fadeOutAndStopSource(sourceToStop, gainToStop, 0.05);
-    syncMasterOutputLevel({ ramp: 0.02, ignoreAmbience: true });
+    syncMasterOutputLevel({ ramp: 0.08, ignoreAmbience: true });
 
     if (settings.updateIntent !== false) syncPlaybackIntentFromSources();
-    scheduleAudioOutputIdleCheck(60);
+    scheduleAudioOutputIdleCheck(150);
     syncMediaSessionMetadata();
     syncMediaSessionPlaybackState();
     render();
@@ -1242,6 +1233,8 @@
         '    <div>',
         '      <h3 class="track-title">' + track.title + '</h3>',
         '      <p class="card-description">' + track.description + '</p>',
+        track.details ? '      <div class="card-details-wrap"><p class="card-details">' + track.details + '</p></div>' : '',
+        track.details ? '      <button class="read-more-btn" type="button" data-action="toggle-details">Read more</button>' : '',
         '    </div>',
         '    <div>' + badge + assetBadge + '</div>',
         '  </div>',
@@ -1328,7 +1321,7 @@
 
     dom.detailTitle.textContent = selectedFrequency ? selectedFrequency.title : 'Choose a frequency';
     dom.detailDescription.textContent = selectedFrequency
-      ? selectedFrequency.description
+      ? selectedFrequency.description + (selectedFrequency.details ? ' ' + selectedFrequency.details : '')
       : 'Descriptions remain visible here so the selected frequency is easy to read without opening extra panels.';
     dom.detailId.textContent = selectedFrequency ? selectedFrequency.id : '-';
     dom.detailPath.textContent = selectedFrequency ? selectedFrequency.file : 'audio/frequencies/';
@@ -1406,6 +1399,16 @@
     });
 
     dom.frequencyList.addEventListener('click', (event) => {
+      const readMoreBtn = event.target.closest('button[data-action="toggle-details"]');
+      if (readMoreBtn) {
+        const card = readMoreBtn.closest('.track-card');
+        if (card) {
+          card.classList.toggle('details-open');
+          readMoreBtn.textContent = card.classList.contains('details-open') ? 'Read less' : 'Read more';
+        }
+        return;
+      }
+
       const button = event.target.closest('button[data-action][data-frequency-id]');
       if (!button) return;
 
@@ -1481,11 +1484,65 @@
     });
   }
 
+  function initTabs() {
+    var tabBar = document.querySelector('.tab-bar');
+    if (!tabBar) return;
+
+    var isDesktop = window.matchMedia('(min-width: 960px) and (min-height: 760px)');
+    var panels = document.querySelectorAll('[data-tab-panel]');
+    var buttons = tabBar.querySelectorAll('.tab-btn');
+
+    function applyTabMode(useTabMode) {
+      if (useTabMode) {
+        document.documentElement.classList.add('tab-mode');
+        var activeTab = tabBar.querySelector('.tab-btn.is-active');
+        var activeId = activeTab ? activeTab.getAttribute('data-tab') : 'player';
+        switchTab(activeId);
+      } else {
+        document.documentElement.classList.remove('tab-mode');
+        for (var i = 0; i < panels.length; i++) {
+          panels[i].classList.add('tab-visible');
+        }
+      }
+    }
+
+    function switchTab(tabId) {
+      for (var i = 0; i < panels.length; i++) {
+        if (panels[i].getAttribute('data-tab-panel') === tabId) {
+          panels[i].classList.add('tab-visible');
+        } else {
+          panels[i].classList.remove('tab-visible');
+        }
+      }
+      for (var j = 0; j < buttons.length; j++) {
+        if (buttons[j].getAttribute('data-tab') === tabId) {
+          buttons[j].classList.add('is-active');
+        } else {
+          buttons[j].classList.remove('is-active');
+        }
+      }
+    }
+
+    tabBar.addEventListener('click', function(event) {
+      var btn = event.target.closest('.tab-btn');
+      if (!btn) return;
+      var tabId = btn.getAttribute('data-tab');
+      if (tabId) switchTab(tabId);
+    });
+
+    isDesktop.addEventListener('change', function(event) {
+      applyTabMode(!event.matches);
+    });
+
+    applyTabMode(!isDesktop.matches);
+  }
+
   function init() {
     cacheDom();
     bindEvents();
     ensureMediaSessionHandlers();
     initLandscapeViz();
+    initTabs();
     render();
     registerServiceWorker();
   }
