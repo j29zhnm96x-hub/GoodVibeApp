@@ -1,5 +1,6 @@
 :root {
   color-scheme: light;
+  --shell-width: min(1180px, calc(100% - 1.5rem));
   --display-font: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   --body-font: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
   --bg: #e9e3d8;
@@ -45,6 +46,24 @@ body {
     radial-gradient(circle at 85% 12%, rgba(199, 177, 147, 0.34), transparent 32%),
     linear-gradient(180deg, #f1ece4 0%, var(--bg) 100%);
   transition: background 700ms ease, color 300ms ease;
+}
+
+html.tab-mode body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(env(safe-area-inset-top, 0px) + 0.35rem);
+  background: linear-gradient(180deg, rgba(241, 236, 228, 0.96), rgba(241, 236, 228, 0.78));
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  z-index: 2;
+  pointer-events: none;
+}
+
+html.landscape body::before {
+  display: none;
 }
 
 /* Disable text selection and iOS callout globally (allow text entry controls) */
@@ -172,7 +191,7 @@ html.landscape #viz {
 
 .app-shell {
   position: relative;
-  width: min(1180px, calc(100% - 1.5rem));
+  width: var(--shell-width);
   margin: 0 auto;
   padding: 1rem 0 2rem;
   z-index: 1;
@@ -206,6 +225,10 @@ html.landscape #viz {
     linear-gradient(135deg, rgba(253, 251, 246, 0.95), rgba(244, 237, 226, 0.78)),
     var(--surface);
   box-shadow: var(--shadow-lg);
+}
+
+.tab-mode .app-shell {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 1rem);
 }
 
 .hero-expandable {
@@ -752,8 +775,11 @@ input[type="range"] {
 }
 
 @media (min-width: 700px) and (min-height: 700px) {
+  :root {
+    --shell-width: min(1220px, calc(100% - 2rem));
+  }
+
   .app-shell {
-    width: min(1220px, calc(100% - 2rem));
     padding-top: 1.2rem;
   }
 
@@ -901,9 +927,304 @@ input[type="range"] {
 
 /* Padding for fixed tab bar on mobile */
 .tab-mode .layout {
-  padding-bottom: 4.2rem;
+  padding-bottom: 0.85rem;
+}
+
+.tab-mode .footer-note {
+  margin-bottom: calc(4.6rem + env(safe-area-inset-bottom, 0px));
 }
 
 .tab-mode .version-badge {
   bottom: 4rem;
+}
+
+/* ── Night-mode toggle button ── */
+.night-toggle {
+  position: absolute;
+  top: 1.15rem;
+  right: 1.15rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(21, 52, 61, 0.07);
+  color: var(--ocean);
+  cursor: pointer;
+  transition: background 350ms ease, color 350ms ease, transform 450ms cubic-bezier(.4,2,.6,1);
+}
+
+.night-toggle:hover {
+  background: rgba(21, 52, 61, 0.13);
+  transform: scale(1.08);
+}
+
+.night-toggle:active {
+  transform: scale(0.92);
+}
+
+.night-toggle-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  transition: opacity 350ms ease, transform 500ms cubic-bezier(.4,2,.6,1);
+  position: absolute;
+}
+
+.night-toggle-sun {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.5);
+}
+
+.night-toggle-moon {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+
+/* When night mode is active, swap icons */
+html.night .night-toggle-sun {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+
+html.night .night-toggle-moon {
+  opacity: 0;
+  transform: rotate(90deg) scale(0.5);
+}
+
+html.night .night-toggle {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f0d68a;
+}
+
+html.night .night-toggle:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* ── Night mode — deep ocean palette ── */
+html.night {
+  color-scheme: dark;
+  --bg: #0c1a1f;
+  --surface: rgba(18, 36, 42, 0.82);
+  --surface-strong: rgba(22, 42, 50, 0.92);
+  --surface-border: rgba(255, 255, 255, 0.08);
+  --text: #d4dbd9;
+  --muted: #8fa7a2;
+  --deep-ocean: #cde0dd;
+  --ocean: #5db8b4;
+  --ocean-soft: rgba(93, 184, 180, 0.14);
+  --sand: #b09a7c;
+  --sand-soft: rgba(176, 154, 124, 0.16);
+  --clay: #d4845e;
+  --clay-soft: rgba(212, 132, 94, 0.18);
+  --success: #52b896;
+  --shadow-lg: 0 24px 70px rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+html.night body {
+  background:
+    radial-gradient(circle at top left, rgba(30, 80, 90, 0.25), transparent 38%),
+    radial-gradient(circle at 85% 12%, rgba(120, 90, 50, 0.18), transparent 32%),
+    linear-gradient(180deg, #0e1f25 0%, var(--bg) 100%);
+}
+
+html.night.tab-mode body::before {
+  background: linear-gradient(180deg, rgba(12, 26, 31, 0.96), rgba(12, 26, 31, 0.78));
+}
+
+html.night .page-backdrop::after {
+  background:
+    linear-gradient(120deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.18) 42%, rgba(0, 0, 0, 0.34)),
+    radial-gradient(circle at 50% 50%, rgba(40, 70, 80, 0.12), transparent 62%);
+  opacity: 0.6;
+}
+
+html.night .page-backdrop::before {
+  background:
+    radial-gradient(circle at 22% 24%, rgba(50, 120, 130, 0.14), transparent 26%),
+    radial-gradient(circle at 72% 28%, rgba(120, 90, 50, 0.12), transparent 30%),
+    radial-gradient(circle at 54% 78%, rgba(40, 60, 85, 0.14), transparent 28%);
+  opacity: 0.5;
+}
+
+html.night .gradient-a {
+  background: rgba(40, 110, 120, 0.18);
+}
+
+html.night .gradient-b {
+  background: rgba(140, 80, 50, 0.14);
+}
+
+html.night .gradient-c {
+  background: rgba(90, 80, 60, 0.16);
+}
+
+html.night .hero {
+  background:
+    linear-gradient(135deg, rgba(18, 38, 44, 0.95), rgba(14, 30, 36, 0.85)),
+    var(--surface);
+}
+
+html.night .panel::after {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 55%);
+}
+
+html.night .button-primary {
+  background: linear-gradient(135deg, #3aa89e, #5db8b4);
+  color: #0c1a1f;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35);
+}
+
+html.night .button-secondary {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+}
+
+html.night .button-ghost {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+html.night .track-card,
+html.night .ambience-card {
+  background: rgba(22, 42, 50, 0.7);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+html.night .track-card.is-selected,
+html.night .ambience-card.is-selected {
+  border-color: rgba(93, 184, 180, 0.3);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
+}
+
+html.night .track-card.is-playing,
+html.night .ambience-card.is-playing {
+  border-color: rgba(212, 132, 94, 0.35);
+  background: rgba(28, 48, 55, 0.85);
+  box-shadow: 0 16px 32px rgba(212, 132, 94, 0.12);
+}
+
+html.night .card-button {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+}
+
+html.night .card-button.primary {
+  background: rgba(93, 184, 180, 0.85);
+  color: #0c1a1f;
+}
+
+html.night .pill {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+html.night .pill.subtle {
+  background: rgba(93, 184, 180, 0.1);
+  color: var(--ocean);
+}
+
+html.night .state-tag {
+  background: rgba(93, 184, 180, 0.12);
+  color: var(--ocean);
+}
+
+html.night .state-tag.live {
+  background: rgba(212, 132, 94, 0.16);
+  color: #d4845e;
+}
+
+html.night .toggle-card {
+  background: rgba(22, 42, 50, 0.85);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+html.night .current-track {
+  background: rgba(22, 42, 50, 0.85);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+html.night input[type="search"] {
+  background: rgba(22, 42, 50, 0.7);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+html.night .status-message {
+  background: rgba(93, 184, 180, 0.1);
+  color: var(--text);
+}
+
+html.night .status-message.error {
+  background: rgba(212, 132, 94, 0.14);
+  color: #d4845e;
+}
+
+html.night .detail-grid div {
+  background: rgba(22, 42, 50, 0.6);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+html.night .empty-state {
+  background: rgba(93, 184, 180, 0.08);
+}
+
+html.night .footer-note {
+  background: rgba(18, 36, 42, 0.74);
+}
+
+html.night .tab-bar {
+  background: rgba(14, 28, 34, 0.94);
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+html.night .tab-btn.is-active {
+  color: var(--ocean);
+}
+
+html.night input[type="range"] {
+  accent-color: var(--ocean);
+}
+
+html.night .asset-state.missing {
+  background: rgba(212, 132, 94, 0.16);
+  color: #d4845e;
+}
+
+/* Smooth color transition on everything */
+html {
+  transition: color 500ms ease;
+}
+
+html body,
+html .panel,
+html .hero,
+html .track-card,
+html .ambience-card,
+html .pill,
+html .button,
+html .card-button,
+html .toggle-card,
+html .current-track,
+html .tab-bar,
+html .status-message,
+html .footer-note,
+html input[type="search"],
+html .detail-grid div,
+html .night-toggle {
+  transition-property: background, background-color, color, border-color, box-shadow;
+  transition-duration: 500ms;
+  transition-timing-function: ease;
+}
+
+html .page-backdrop::after,
+html .page-backdrop::before,
+html .gradient-a,
+html .gradient-b,
+html .gradient-c {
+  transition: opacity 700ms ease, background-color 700ms ease;
 }

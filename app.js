@@ -1702,12 +1702,56 @@
     applyTabMode(!isDesktop.matches);
   }
 
+  function initNightMode() {
+    var NIGHT_KEY = 'gv_night_mode';
+    var root = document.documentElement;
+    var toggle = document.getElementById('nightToggle');
+    var themeMeta = document.querySelector('meta[name="theme-color"]');
+
+    // Restore persisted preference
+    var stored = localStorage.getItem(NIGHT_KEY);
+    var isNight = stored === 'true';
+
+    // Also respect OS preference if no stored value
+    if (stored === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      isNight = true;
+    }
+
+    function applyNightMode(enabled) {
+      isNight = enabled;
+      root.classList.toggle('night', isNight);
+      if (themeMeta) themeMeta.setAttribute('content', isNight ? '#0c1a1f' : '#15343d');
+
+      try {
+        localStorage.setItem(NIGHT_KEY, JSON.stringify(isNight));
+      } catch (e) {}
+    }
+
+    applyNightMode(isNight);
+
+    if (toggle) {
+      toggle.addEventListener('click', function() {
+        applyNightMode(!isNight);
+      });
+    }
+
+    // Follow OS changes if user hasn't explicitly toggled
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(event) {
+        if (localStorage.getItem(NIGHT_KEY) === null) {
+          applyNightMode(event.matches);
+        }
+      });
+    }
+  }
+
   function init() {
     cacheDom();
     bindEvents();
     ensureMediaSessionHandlers();
     initLandscapeViz();
     initTabs();
+    initNightMode();
     initWakeLock();
     render();
     registerServiceWorker();
