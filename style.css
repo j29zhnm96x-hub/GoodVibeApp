@@ -43,6 +43,22 @@ body {
   transition: background 700ms ease, color 300ms ease;
 }
 
+/* Disable text selection and iOS callout globally (allow in form controls) */
+html, body {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input, textarea, select, button, [contenteditable] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
 button,
 input {
   font: inherit;
