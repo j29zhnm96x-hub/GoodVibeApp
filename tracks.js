@@ -61,7 +61,6 @@ const FREQUENCY_TRACKS = [
 const AMBIENCE_TRACKS = [
   { id: 'rain-forest', title: 'Rain Forest', file: 'audio/nature/rain_forest.mp3', category: 'Nature', description: 'A lush natural background for grounding and calm.' },
   { id: 'white-noise', title: 'White Noise', file: 'audio/noises/white_noise.mp3', category: 'Noise', description: 'A neutral masking layer for focus, sleep, or stillness.' },
-  { id: 'white-noise-432', title: 'White Noise 432', file: 'audio/noises/white_noise_432hz.mp3', category: 'Noise', description: 'A softer white noise variant with a warmer feel.' },
   { id: 'ambiental-synth', title: 'Ambient Synth', file: 'audio/soundscapes/ambiental_synth.mp3', category: 'Soundscape', description: 'A gentle airy soundscape for meditation and relaxation.' }
 ];
 

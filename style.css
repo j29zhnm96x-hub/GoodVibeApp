@@ -189,6 +189,39 @@ html.landscape #viz {
   box-shadow: var(--shadow-lg);
 }
 
+.hero-expandable {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 350ms ease, opacity 300ms ease;
+}
+
+.hero.is-expanded .hero-expandable {
+  max-height: 20rem;
+  opacity: 1;
+}
+
+.hero-toggle {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ocean);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.hero-toggle:hover {
+  text-decoration: underline;
+}
+
+.wake-lock-card {
+  margin-top: 1rem;
+}
+
 .eyebrow,
 .section-kicker,
 .ambience-category {

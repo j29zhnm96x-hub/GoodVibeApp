@@ -14,13 +14,13 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="style.css?v=12">
   <title>GoodVibes</title>
-  <script src="tracks.js?v=11" defer></script>
-  <script src="app.js?v=11" defer></script>
+  <script src="tracks.js?v=12" defer></script>
+  <script src="app.js?v=12" defer></script>
 </head>
 <body>
-  <div class="version-badge">v11</div>
+  <div class="version-badge">v12</div>
   <canvas id="viz" aria-hidden="true"></canvas>
   <div class="page-backdrop" aria-hidden="true">
     <div class="backdrop-gradient gradient-a"></div>
@@ -33,15 +33,18 @@
       <p class="eyebrow">Wellness listening</p>
       <h1 id="app-title">GoodVibes</h1>
       <p class="subtitle">Seamless frequency playback with optional ambience.</p>
-      <p class="hero-copy">
-        A frequency-first PWA for calm, focus, meditation, and reflection. GoodVibes supports
-        relaxation and wellness routines. It is not medical treatment.
-      </p>
-      <ul class="hero-points" aria-label="Core features">
-        <li>Seamless looping frequency playback</li>
-        <li>Optional ambience layer with separate volume</li>
-        <li>Designed for iPhone background and lock-screen controls</li>
-      </ul>
+      <div class="hero-expandable">
+        <p class="hero-copy">
+          A frequency-first PWA for calm, focus, meditation, and reflection. GoodVibes supports
+          relaxation and wellness routines. It is not medical treatment.
+        </p>
+        <ul class="hero-points" aria-label="Core features">
+          <li>Seamless looping frequency playback</li>
+          <li>Optional ambience layer with separate volume</li>
+          <li>Designed for iPhone background and lock-screen controls</li>
+        </ul>
+      </div>
+      <button class="hero-toggle" type="button" id="heroToggle">Read more</button>
     </header>
 
     <main class="layout">
@@ -87,6 +90,14 @@
         </div>
 
         <p id="statusMessage" class="status-message" role="status" aria-live="polite">Ready when you are.</p>
+
+        <div class="toggle-card wake-lock-card">
+          <label class="toggle" for="stayAwake">
+            <input id="stayAwake" type="checkbox">
+            <span>Stay awake</span>
+          </label>
+          <p class="support">Prevents auto-lock while the app is open.</p>
+        </div>
       </section>
 
       <section class="panel browser-panel" data-tab-panel="frequencies" aria-labelledby="library-heading">
@@ -220,5 +231,5 @@
 
   <audio id="audioOut" hidden aria-hidden="true"></audio>
 </body>
-<!-- v11 -->
+<!-- v12 -->
 </html>

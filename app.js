@@ -373,6 +373,8 @@
   let mainLoadToken = 0;
   let ambienceLoadToken = 0;
 
+  let wakeLockSentinel = null;
+
   let audioCtx;
   let master;
   let mediaDest;
@@ -1346,6 +1348,17 @@
   }
 
   function bindEvents() {
+    var heroToggle = document.getElementById('heroToggle');
+    if (heroToggle) {
+      heroToggle.addEventListener('click', function() {
+        var hero = heroToggle.closest('.hero');
+        if (hero) {
+          hero.classList.toggle('is-expanded');
+          heroToggle.textContent = hero.classList.contains('is-expanded') ? 'Read less' : 'Read more';
+        }
+      });
+    }
+
     dom.searchInput.addEventListener('input', (event) => {
       state.searchQuery = event.target.value || '';
       renderFrequencyList();
@@ -1484,6 +1497,62 @@
     });
   }
 
+  async function requestWakeLock() {
+    if (!('wakeLock' in navigator)) return false;
+    try {
+      wakeLockSentinel = await navigator.wakeLock.request('screen');
+      wakeLockSentinel.addEventListener('release', function() {
+        wakeLockSentinel = null;
+        var checkbox = document.getElementById('stayAwake');
+        if (checkbox) checkbox.checked = false;
+      });
+      return true;
+    } catch {
+      wakeLockSentinel = null;
+      return false;
+    }
+  }
+
+  function releaseWakeLock() {
+    if (wakeLockSentinel) {
+      try { wakeLockSentinel.release(); } catch {}
+      wakeLockSentinel = null;
+    }
+  }
+
+  function initWakeLock() {
+    var checkbox = document.getElementById('stayAwake');
+    if (!checkbox) return;
+
+    if (!('wakeLock' in navigator)) {
+      checkbox.disabled = true;
+      var support = checkbox.closest('.wake-lock-card');
+      if (support) {
+        var note = support.querySelector('.support');
+        if (note) note.textContent = 'Wake Lock is not supported in this browser.';
+      }
+      return;
+    }
+
+    checkbox.addEventListener('change', function() {
+      if (checkbox.checked) {
+        requestWakeLock().then(function(ok) {
+          if (!ok) checkbox.checked = false;
+        });
+      } else {
+        releaseWakeLock();
+      }
+    });
+
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible' && checkbox.checked && !wakeLockSentinel) {
+        requestWakeLock().then(function(ok) {
+          if (!ok) checkbox.checked = false;
+        });
+      }
+    });
+  }
+
   function initTabs() {
     var tabBar = document.querySelector('.tab-bar');
     if (!tabBar) return;
@@ -1543,6 +1612,7 @@
     ensureMediaSessionHandlers();
     initLandscapeViz();
     initTabs();
+    initWakeLock();
     render();
     registerServiceWorker();
   }
