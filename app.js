@@ -8,10 +8,59 @@
   const audioBufferCache = new Map();
   const audioLoadPromises = new Map();
   const assetStates = new Map();
+  const DAILY_DEFAULT_FREQUENCY_ID = '432hz';
+  const SELECTED_FREQUENCY_KEY = 'gv_selected_frequency';
+  const LAST_OPEN_DAY_KEY = 'gv_last_open_day';
+
+  function getLocalDayKey() {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    return now.getFullYear()
+      + '-'
+      + (month < 10 ? '0' + month : String(month))
+      + '-'
+      + (day < 10 ? '0' + day : String(day));
+  }
+
+  function getFallbackFrequencyId() {
+    if (frequencyById.has(DAILY_DEFAULT_FREQUENCY_ID)) return DAILY_DEFAULT_FREQUENCY_ID;
+    return FREQUENCY_TRACKS[0] ? FREQUENCY_TRACKS[0].id : null;
+  }
+
+  function getInitialSelectedFrequencyId() {
+    const fallbackFrequencyId = getFallbackFrequencyId();
+
+    try {
+      const todayKey = getLocalDayKey();
+      const lastOpenDay = localStorage.getItem(LAST_OPEN_DAY_KEY);
+      const storedFrequencyId = localStorage.getItem(SELECTED_FREQUENCY_KEY);
+
+      if (lastOpenDay !== todayKey) {
+        localStorage.setItem(LAST_OPEN_DAY_KEY, todayKey);
+        if (fallbackFrequencyId) localStorage.setItem(SELECTED_FREQUENCY_KEY, fallbackFrequencyId);
+        return fallbackFrequencyId;
+      }
+
+      if (storedFrequencyId && frequencyById.has(storedFrequencyId)) return storedFrequencyId;
+      if (fallbackFrequencyId) localStorage.setItem(SELECTED_FREQUENCY_KEY, fallbackFrequencyId);
+    } catch (e) {}
+
+    return fallbackFrequencyId;
+  }
+
+  function setSelectedFrequencyId(frequencyId) {
+    if (!frequencyById.has(frequencyId || '')) return;
+    state.selectedFrequencyId = frequencyId;
+
+    try {
+      localStorage.setItem(SELECTED_FREQUENCY_KEY, frequencyId);
+    } catch (e) {}
+  }
 
   const state = {
     searchQuery: '',
-    selectedFrequencyId: FREQUENCY_TRACKS[0] ? FREQUENCY_TRACKS[0].id : null,
+    selectedFrequencyId: getInitialSelectedFrequencyId(),
     selectedAmbienceId: AMBIENCE_TRACKS[0] ? AMBIENCE_TRACKS[0].id : null,
     ambienceEnabled: false,
     mainVolume: 0.9,
@@ -878,7 +927,7 @@
     const previousActiveId = mainTrackId;
     const requestToken = ++mainLoadToken;
 
-    state.selectedFrequencyId = track.id;
+    setSelectedFrequencyId(track.id);
     ensureAudio();
     if (settings.initiatedByUser) await resumeAudioContextIfNeeded();
 
@@ -942,9 +991,9 @@
     } catch (error) {
       if (requestToken !== mainLoadToken) return false;
       if (previousActiveId && previousActiveId !== track.id && mainSource && mainTrackId === previousActiveId) {
-        state.selectedFrequencyId = previousActiveId;
+        setSelectedFrequencyId(previousActiveId);
       } else if (previousSelectedId) {
-        state.selectedFrequencyId = previousSelectedId;
+        setSelectedFrequencyId(previousSelectedId);
       }
 
       const failureMessage = getAssetState(track.id).message || track.title + ' could not be loaded.';
@@ -1184,7 +1233,7 @@
   function selectFrequency(frequencyId, options) {
     const settings = options || {};
     if (!frequencyById.has(frequencyId)) return;
-    state.selectedFrequencyId = frequencyId;
+    setSelectedFrequencyId(frequencyId);
 
     if (settings.autoPlay || mainSource) {
       playFrequencyTrack(frequencyId, { initiatedByUser: settings.userInitiated, suppressStatus: false });
@@ -1365,8 +1414,19 @@
 
     dom.searchInput.addEventListener('input', (event) => {
       state.searchQuery = event.target.value || '';
+      if (dom.searchClear) dom.searchClear.hidden = !state.searchQuery;
       renderFrequencyList();
     });
+
+    if (dom.searchClear) {
+      dom.searchClear.addEventListener('click', (event) => {
+        state.searchQuery = '';
+        dom.searchInput.value = '';
+        dom.searchClear.hidden = true;
+        renderFrequencyList();
+        dom.searchInput.focus();
+      });
+    }
 
     dom.playMainButton.addEventListener('click', () => {
       playFrequencyTrack(state.selectedFrequencyId, { initiatedByUser: true });
@@ -1469,6 +1529,7 @@
 
     dom.resultCount = document.getElementById('resultCount');
     dom.searchInput = document.getElementById('searchInput');
+    dom.searchClear = document.getElementById('searchClear');
     dom.frequencyList = document.getElementById('frequencyList');
     dom.emptyState = document.getElementById('emptyState');
 
