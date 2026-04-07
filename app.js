@@ -1704,9 +1704,11 @@
 
   function initNightMode() {
     var NIGHT_KEY = 'gv_night_mode';
+    var THEME_SHIFT_DURATION = 2100;
     var root = document.documentElement;
     var toggle = document.getElementById('nightToggle');
     var themeMeta = document.querySelector('meta[name="theme-color"]');
+    var themeShiftTimer = 0;
 
     // Restore persisted preference
     var stored = localStorage.getItem(NIGHT_KEY);
@@ -1717,7 +1719,17 @@
       isNight = true;
     }
 
-    function applyNightMode(enabled) {
+    function applyNightMode(enabled, options) {
+      var settings = options || {};
+
+      if (settings.animate) {
+        window.clearTimeout(themeShiftTimer);
+        root.classList.add('theme-shifting');
+        void root.offsetWidth;
+      } else {
+        root.classList.remove('theme-shifting');
+      }
+
       isNight = enabled;
       root.classList.toggle('night', isNight);
       if (themeMeta) themeMeta.setAttribute('content', isNight ? '#0c1a1f' : '#15343d');
@@ -1725,13 +1737,19 @@
       try {
         localStorage.setItem(NIGHT_KEY, JSON.stringify(isNight));
       } catch (e) {}
+
+      if (settings.animate) {
+        themeShiftTimer = window.setTimeout(function() {
+          root.classList.remove('theme-shifting');
+        }, THEME_SHIFT_DURATION);
+      }
     }
 
     applyNightMode(isNight);
 
     if (toggle) {
       toggle.addEventListener('click', function() {
-        applyNightMode(!isNight);
+        applyNightMode(!isNight, { animate: true });
       });
     }
 
@@ -1739,7 +1757,7 @@
     if (window.matchMedia) {
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(event) {
         if (localStorage.getItem(NIGHT_KEY) === null) {
-          applyNightMode(event.matches);
+          applyNightMode(event.matches, { animate: true });
         }
       });
     }

@@ -1,6 +1,9 @@
 :root {
   color-scheme: light;
   --shell-width: min(1180px, calc(100% - 1.5rem));
+  --theme-shift-short: 900ms;
+  --theme-shift: 1500ms;
+  --theme-shift-long: 2100ms;
   --display-font: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   --body-font: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
   --bg: #e9e3d8;
@@ -1227,4 +1230,43 @@ html .gradient-a,
 html .gradient-b,
 html .gradient-c {
   transition: opacity 700ms ease, background-color 700ms ease;
+}
+
+html.theme-shifting {
+  transition: color var(--theme-shift) ease;
+}
+
+html.theme-shifting body {
+  transition: background var(--theme-shift-long) ease, color var(--theme-shift-short) ease;
+}
+
+html.theme-shifting .night-toggle-icon {
+  transition: opacity var(--theme-shift-short) ease, transform var(--theme-shift) cubic-bezier(.4,2,.6,1);
+}
+
+html.theme-shifting body,
+html.theme-shifting .panel,
+html.theme-shifting .hero,
+html.theme-shifting .track-card,
+html.theme-shifting .ambience-card,
+html.theme-shifting .pill,
+html.theme-shifting .button,
+html.theme-shifting .card-button,
+html.theme-shifting .toggle-card,
+html.theme-shifting .current-track,
+html.theme-shifting .tab-bar,
+html.theme-shifting .status-message,
+html.theme-shifting .footer-note,
+html.theme-shifting input[type="search"],
+html.theme-shifting .detail-grid div,
+html.theme-shifting .night-toggle {
+  transition-duration: var(--theme-shift);
+}
+
+html.theme-shifting .page-backdrop::after,
+html.theme-shifting .page-backdrop::before,
+html.theme-shifting .gradient-a,
+html.theme-shifting .gradient-b,
+html.theme-shifting .gradient-c {
+  transition: opacity var(--theme-shift-long) ease, background-color var(--theme-shift-long) ease;
 }
