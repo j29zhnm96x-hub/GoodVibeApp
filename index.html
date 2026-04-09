@@ -14,14 +14,14 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="style.css?v=20">
+  <link rel="stylesheet" href="style.css?v=24">
   <title>GoodVibes</title>
   <script src="https://cdn.jsdelivr.net/npm/nosleep.js@0.12.0/dist/NoSleep.min.js"></script>
-  <script src="tracks.js?v=20" defer></script>
-  <script src="app.js?v=20" defer></script>
+  <script src="tracks.js?v=21" defer></script>
+  <script src="app.js?v=22" defer></script>
 </head>
 <body>
-  <div class="version-badge">v20</div>
+  <div class="version-badge">v24</div>
   <canvas id="viz" aria-hidden="true"></canvas>
   <div class="page-backdrop" aria-hidden="true">
     <div class="backdrop-gradient gradient-a"></div>
@@ -81,6 +81,39 @@
             <span id="mainVolumeValue">90%</span>
           </div>
           <input id="mainVolume" type="range" min="0" max="1" step="0.01" value="0.9">
+        </div>
+
+        <div class="timer-card" aria-labelledby="timerHeading">
+          <div class="timer-top">
+            <div>
+              <p class="label">Sleep timer</p>
+              <p id="timerHeading" class="timer-summary">Off</p>
+            </div>
+            <span id="timerBadge" class="pill subtle timer-badge">Off</span>
+          </div>
+
+          <p id="timerSupport" class="support">
+            Pick a preset or exact time. Starting is silent, and the final minute fades out before stopping.
+          </p>
+
+          <div id="timerPresets" class="timer-presets" role="group" aria-label="Sleep timer presets">
+            <button class="timer-preset" type="button" data-timer-minutes="15">15 min</button>
+            <button class="timer-preset" type="button" data-timer-minutes="30">30 min</button>
+            <button class="timer-preset" type="button" data-timer-minutes="60">1 h</button>
+            <button class="timer-preset" type="button" data-timer-minutes="180">3 h</button>
+            <button class="timer-preset" type="button" data-timer-minutes="360">6 h</button>
+            <button class="timer-preset" type="button" data-timer-minutes="540">9 h</button>
+          </div>
+
+          <div class="timer-field">
+            <label for="timerInput">Custom duration</label>
+            <input id="timerInput" type="time" min="00:01" max="23:59" step="60" value="01:00">
+          </div>
+
+          <div class="timer-actions">
+            <button id="startTimerButton" class="button button-secondary" type="button">Start timer</button>
+            <button id="cancelTimerButton" class="button button-ghost" type="button">Cancel timer</button>
+          </div>
         </div>
 
         <div class="status-grid">
@@ -239,5 +272,5 @@
 
   <audio id="audioOut" hidden aria-hidden="true"></audio>
 </body>
-<!-- v20 -->
+<!-- v24 -->
 </html>

@@ -453,11 +453,13 @@ html.landscape #viz {
 }
 
 input[type="search"],
+input[type="time"],
 input[type="range"] {
   width: 100%;
 }
 
-input[type="search"] {
+input[type="search"],
+input[type="time"] {
   min-height: 3.2rem;
   padding: 0.85rem 1rem;
   border: 1px solid rgba(21, 52, 61, 0.12);
@@ -505,6 +507,7 @@ input[type="search"] {
 }
 
 input[type="search"]:focus-visible,
+input[type="time"]:focus-visible,
 input[type="range"]:focus-visible,
 .button:focus-visible,
 .toggle input:focus-visible + span {
@@ -521,6 +524,117 @@ input[type="range"] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
   margin-top: 1rem;
+}
+
+.timer-card {
+  margin-top: 1rem;
+  padding: 1rem;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--surface-strong);
+  border: 1px solid rgba(21, 52, 61, 0.08);
+}
+
+/* Prevent horizontal overflow on small screens: allow children to shrink
+   inside grid/flex containers and cap widths to the panel width. This
+   stops the timer input/preset row from forcing the panel wider than the
+   viewport and appearing to spill past the island edges. */
+.panel,
+.timer-card,
+.timer-presets,
+.timer-field {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.timer-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.timer-summary {
+  margin: 0;
+  font-family: var(--display-font);
+  font-size: 1.4rem;
+  color: var(--deep-ocean);
+}
+
+.timer-badge.is-running {
+  background: var(--ocean-soft);
+  color: var(--ocean);
+}
+
+.timer-badge.is-fading {
+  background: var(--clay-soft);
+  color: var(--clay);
+}
+
+.timer-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+}
+
+.timer-preset {
+  min-height: 2.55rem;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(21, 52, 61, 0.07);
+  color: var(--deep-ocean);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: transform 180ms ease, background-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+.timer-preset.is-active {
+  background: linear-gradient(135deg, var(--deep-ocean), var(--ocean));
+  color: #f7f5f1;
+  box-shadow: 0 12px 24px rgba(21, 52, 61, 0.16);
+}
+
+.timer-preset:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.timer-field {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.9rem;
+  min-width: 0;
+  padding-inline: 0.12rem;
+}
+
+.timer-field label {
+  display: inline-block;
+  margin-bottom: 0;
+  color: var(--deep-ocean);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.timer-field input[type="time"] {
+  display: block;
+  width: 100%;
+  max-width: 14.7rem; /* ~30% narrower than previous 21rem */
+  min-width: 0;
+  margin: 0 auto;
+}
+
+.timer-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
+.timer-actions .button {
+  min-height: 2.9rem;
 }
 
 .status-value {
@@ -773,7 +887,7 @@ input[type="range"] {
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
@@ -796,6 +910,10 @@ input[type="range"] {
 
   .ambience-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .timer-presets {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 
@@ -1157,6 +1275,28 @@ html.night input[type="search"] {
   color: var(--text);
 }
 
+html.night input[type="time"] {
+  background: rgba(22, 42, 50, 0.7);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+html.night .timer-card {
+  background: rgba(22, 42, 50, 0.85);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+html.night .timer-preset {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+}
+
+html.night .timer-preset.is-active {
+  background: linear-gradient(135deg, #3aa89e, #5db8b4);
+  color: #0c1a1f;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
+}
+
 html.night .status-message {
   background: rgba(93, 184, 180, 0.1);
   color: var(--text);
@@ -1206,17 +1346,21 @@ html {
 html body,
 html .panel,
 html .hero,
+html .timer-card,
 html .track-card,
 html .ambience-card,
 html .pill,
+html .timer-badge,
 html .button,
 html .card-button,
+html .timer-preset,
 html .toggle-card,
 html .current-track,
 html .tab-bar,
 html .status-message,
 html .footer-note,
 html input[type="search"],
+html input[type="time"],
 html .detail-grid div,
 html .night-toggle {
   transition-property: background, background-color, color, border-color, box-shadow;

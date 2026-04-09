@@ -11,6 +11,11 @@
   const DAILY_DEFAULT_FREQUENCY_ID = '432hz';
   const SELECTED_FREQUENCY_KEY = 'gv_selected_frequency';
   const LAST_OPEN_DAY_KEY = 'gv_last_open_day';
+  const TIMER_DURATION_KEY = 'gv_timer_minutes';
+  const TIMER_PRESET_MINUTES = Object.freeze([15, 30, 60, 180, 360, 540]);
+  const TIMER_FADE_SECONDS = 60;
+  const TIMER_FADE_MS = TIMER_FADE_SECONDS * 1000;
+  const TIMER_TICK_MS = 1000;
 
   function getLocalDayKey() {
     const now = new Date();
@@ -58,6 +63,23 @@
     } catch (e) {}
   }
 
+  function clampTimerMinutes(value) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return null;
+
+    const roundedMinutes = Math.round(numericValue);
+    if (roundedMinutes < 1 || roundedMinutes > 1439) return null;
+    return roundedMinutes;
+  }
+
+  function getStoredTimerMinutes() {
+    try {
+      const storedMinutes = clampTimerMinutes(localStorage.getItem(TIMER_DURATION_KEY));
+      if (storedMinutes) return storedMinutes;
+    } catch (e) {}
+    return 60;
+  }
+
   const state = {
     searchQuery: '',
     selectedFrequencyId: getInitialSelectedFrequencyId(),
@@ -65,6 +87,10 @@
     ambienceEnabled: false,
     mainVolume: 0.9,
     ambienceVolume: 0.35,
+    timerMinutes: getStoredTimerMinutes(),
+    timerEndsAt: 0,
+    timerFadeEndsAt: 0,
+    timerPhase: 'idle',
     statusMessage: 'Ready when you are.',
     statusTone: 'neutral'
   };
@@ -427,6 +453,8 @@
   let _noSleepEnabled = false;
   let _onVisibilityChange = null;
   let keepAwake = JSON.parse(localStorage.getItem('gv_keepAwake') || 'false');
+  let sleepTimerIntervalId = 0;
+  let sleepTimerFinalizeId = 0;
 
   let audioCtx;
   let master;
@@ -682,6 +710,58 @@
     return Math.round(value * 100) + '%';
   }
 
+  function formatTimerInputValue(minutes) {
+    const safeMinutes = clampTimerMinutes(minutes) || 60;
+    const hours = Math.floor(safeMinutes / 60);
+    const remainderMinutes = safeMinutes % 60;
+    return String(hours).padStart(2, '0') + ':' + String(remainderMinutes).padStart(2, '0');
+  }
+
+  function parseTimerInputValue(value) {
+    if (!value || !/^\d{2}:\d{2}$/.test(value)) return null;
+    const parts = value.split(':');
+    const hours = Number(parts[0]);
+    const minutes = Number(parts[1]);
+    if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null;
+    return clampTimerMinutes((hours * 60) + minutes);
+  }
+
+  function formatTimerDurationLabel(minutes) {
+    const safeMinutes = clampTimerMinutes(minutes);
+    if (!safeMinutes) return '0 min';
+
+    const hours = Math.floor(safeMinutes / 60);
+    const remainderMinutes = safeMinutes % 60;
+    if (!hours) return safeMinutes + ' min';
+    if (!remainderMinutes) return hours + ' h';
+    return hours + ' h ' + remainderMinutes + ' min';
+  }
+
+  function formatTimerRemaining(ms) {
+    const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours) {
+      return String(hours).padStart(2, '0')
+        + ':' + String(minutes).padStart(2, '0')
+        + ':' + String(seconds).padStart(2, '0');
+    }
+
+    return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+  }
+
+  function formatTimerClock(timestamp) {
+    if (!timestamp) return '--:--';
+    try {
+      return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      const date = new Date(timestamp);
+      return String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
+    }
+  }
+
   function getSelectedFrequency() {
     return frequencyById.get(state.selectedFrequencyId || '') || null;
   }
@@ -701,6 +781,7 @@
   }
 
   function getPlaybackModeLabel() {
+    if (state.timerPhase === 'fading') return 'Timer fade-out';
     if (mainSource && ambienceSource) return 'Frequency + ambience';
     if (mainSource) return 'Frequency only';
     if (ambienceSource) return 'Ambience only';
@@ -708,6 +789,7 @@
   }
 
   function getPlayerStateLabel() {
+    if (state.timerPhase === 'fading') return 'Stopping after timer';
     if (mainSource && mainTrackId) {
       const track = frequencyById.get(mainTrackId);
       return track ? track.title + ' playing' : 'Frequency playing';
@@ -716,6 +798,7 @@
   }
 
   function getAmbienceStateLabel() {
+    if (state.timerPhase === 'fading') return ambienceSource ? 'Fading out' : 'Stopping';
     if (ambienceSource && ambienceTrackId) {
       const track = ambienceById.get(ambienceTrackId);
       return track ? track.title + ' active' : 'Ambience active';
@@ -725,6 +808,7 @@
   }
 
   function getPairingLabel() {
+    if (state.timerPhase === 'fading') return 'Timer fade-out is in progress.';
     const selectedAmbience = getSelectedAmbience();
     if (ambienceSource && selectedAmbience) return 'Currently layered with ' + selectedAmbience.title + '.';
     if (state.ambienceEnabled && selectedAmbience) return 'Ready to layer with ' + selectedAmbience.title + '.';
@@ -739,6 +823,217 @@
       const searchable = [track.title, track.id, track.description, track.details || ''].join(' ').toLowerCase();
       return searchable.includes(query);
     });
+  }
+
+  function persistTimerMinutes(minutes) {
+    try {
+      localStorage.setItem(TIMER_DURATION_KEY, String(minutes));
+    } catch (e) {}
+  }
+
+  function setTimerMinutes(minutes) {
+    const safeMinutes = clampTimerMinutes(minutes);
+    if (!safeMinutes) return false;
+    state.timerMinutes = safeMinutes;
+    persistTimerMinutes(safeMinutes);
+    return true;
+  }
+
+  function clearSleepTimerFinalizeTimeout() {
+    if (!sleepTimerFinalizeId) return;
+    window.clearTimeout(sleepTimerFinalizeId);
+    sleepTimerFinalizeId = 0;
+  }
+
+  function ensureSleepTimerTicker() {
+    if (sleepTimerIntervalId) return;
+    sleepTimerIntervalId = window.setInterval(handleSleepTimerTick, TIMER_TICK_MS);
+  }
+
+  function stopSleepTimerTicker() {
+    if (!sleepTimerIntervalId) return;
+    window.clearInterval(sleepTimerIntervalId);
+    sleepTimerIntervalId = 0;
+  }
+
+  function isTimerFading() {
+    return state.timerPhase === 'fading';
+  }
+
+  function renderTimerPanel() {
+    if (!dom.timerSummary || !dom.timerBadge || !dom.timerSupport || !dom.timerInput) return;
+
+    const now = Date.now();
+    const safeMinutes = clampTimerMinutes(state.timerMinutes) || 60;
+    const inputValue = formatTimerInputValue(safeMinutes);
+    if (dom.timerInput.value !== inputValue) dom.timerInput.value = inputValue;
+
+    if (dom.timerPresets) {
+      const presetButtons = dom.timerPresets.querySelectorAll('button[data-timer-minutes]');
+      presetButtons.forEach((button) => {
+        const presetMinutes = clampTimerMinutes(button.getAttribute('data-timer-minutes'));
+        const isActivePreset = presetMinutes === safeMinutes;
+        button.classList.toggle('is-active', !!isActivePreset);
+        button.setAttribute('aria-pressed', isActivePreset ? 'true' : 'false');
+        button.disabled = isTimerFading();
+      });
+    }
+
+    dom.timerBadge.className = 'pill subtle timer-badge';
+
+    if (state.timerPhase === 'armed' && state.timerEndsAt) {
+      const remainingMs = Math.max(0, state.timerEndsAt - now);
+      dom.timerSummary.textContent = formatTimerRemaining(remainingMs) + ' remaining';
+      dom.timerBadge.textContent = 'Running';
+      dom.timerBadge.classList.add('is-running');
+      dom.timerSupport.textContent = 'Ends at ' + formatTimerClock(state.timerEndsAt) + '. The final minute fades out softly.';
+    } else if (state.timerPhase === 'fading' && state.timerFadeEndsAt) {
+      const remainingMs = Math.max(0, state.timerFadeEndsAt - now);
+      dom.timerSummary.textContent = 'Fading out';
+      dom.timerBadge.textContent = formatTimerRemaining(remainingMs);
+      dom.timerBadge.classList.add('is-fading');
+      dom.timerSupport.textContent = remainingMs > 0
+        ? formatTimerRemaining(remainingMs) + ' until playback stops completely.'
+        : 'Stopping playback...';
+    } else {
+      dom.timerSummary.textContent = 'Off';
+      dom.timerBadge.textContent = 'Off';
+      dom.timerSupport.textContent = 'Pick a preset or exact time. Starting is silent, and the final minute fades out before stopping.';
+    }
+
+    dom.startTimerButton.textContent = state.timerPhase === 'fading'
+      ? 'Fading out'
+      : state.timerPhase === 'armed'
+        ? 'Restart timer'
+        : 'Start timer';
+    dom.startTimerButton.disabled = isTimerFading();
+    dom.cancelTimerButton.disabled = state.timerPhase !== 'armed';
+    dom.timerInput.disabled = isTimerFading();
+  }
+
+  function cancelSleepTimer(options) {
+    const settings = options || {};
+    if (isTimerFading()) return false;
+
+    clearSleepTimerFinalizeTimeout();
+    stopSleepTimerTicker();
+    state.timerPhase = 'idle';
+    state.timerEndsAt = 0;
+    state.timerFadeEndsAt = 0;
+
+    if (!settings.silentStatus) setStatusMessage('Timer canceled.', 'neutral');
+    render();
+    return true;
+  }
+
+  function finalizeSleepTimerFadeOut() {
+    clearSleepTimerFinalizeTimeout();
+    if (state.timerPhase !== 'fading') return;
+
+    ++mainLoadToken;
+    ++ambienceLoadToken;
+
+    mainSource = null;
+    mainGain = null;
+    mainTrackId = null;
+    ambienceSource = null;
+    ambienceGain = null;
+    ambienceTrackId = null;
+    state.ambienceEnabled = false;
+    state.timerPhase = 'idle';
+    state.timerEndsAt = 0;
+    state.timerFadeEndsAt = 0;
+
+    rememberMediaPlaybackIntent('none');
+    syncMasterOutputLevel({ ramp: 0.08 });
+    scheduleAudioOutputIdleCheck(150);
+    setStatusMessage('Timer complete. Playback stopped.', 'neutral');
+    syncMediaSessionMetadata();
+    syncMediaSessionPlaybackState();
+    stopSleepTimerTicker();
+    render();
+  }
+
+  function beginSleepTimerFadeOut() {
+    if (state.timerPhase === 'fading') return;
+
+    if (!hasManagedPlayback()) {
+      cancelSleepTimer({ silentStatus: true });
+      setStatusMessage('Timer finished. No active playback was running.', 'neutral');
+      render();
+      return;
+    }
+
+    state.timerPhase = 'fading';
+    state.timerEndsAt = 0;
+    state.timerFadeEndsAt = Date.now() + TIMER_FADE_MS;
+
+    if (mainSource) fadeOutAndStopSource(mainSource, mainGain, TIMER_FADE_SECONDS, { startValue: state.mainVolume });
+    if (ambienceSource) fadeOutAndStopSource(ambienceSource, ambienceGain, TIMER_FADE_SECONDS, { startValue: state.ambienceVolume });
+
+    clearSleepTimerFinalizeTimeout();
+    sleepTimerFinalizeId = window.setTimeout(finalizeSleepTimerFadeOut, TIMER_FADE_MS + 250);
+    setStatusMessage('Timer ending. Playback will fade out over the next minute.', 'neutral');
+    syncMediaSessionMetadata();
+    syncMediaSessionPlaybackState();
+    render();
+  }
+
+  function handleSleepTimerTick() {
+    if (state.timerPhase === 'idle') {
+      stopSleepTimerTicker();
+      renderTimerPanel();
+      return;
+    }
+
+    const now = Date.now();
+    if (state.timerPhase === 'armed' && state.timerEndsAt && now >= state.timerEndsAt) {
+      beginSleepTimerFadeOut();
+      return;
+    }
+
+    if (state.timerPhase === 'fading' && state.timerFadeEndsAt && now >= state.timerFadeEndsAt) {
+      finalizeSleepTimerFadeOut();
+      return;
+    }
+
+    renderTimerPanel();
+  }
+
+  function startSleepTimer(minutes, options) {
+    const settings = options || {};
+    if (isTimerFading()) return false;
+
+    if (!setTimerMinutes(minutes)) {
+      setStatusMessage('Choose a timer between 00:01 and 23:59.', 'error');
+      render();
+      return false;
+    }
+
+    clearSleepTimerFinalizeTimeout();
+    state.timerPhase = 'armed';
+    state.timerEndsAt = Date.now() + (state.timerMinutes * 60 * 1000);
+    state.timerFadeEndsAt = 0;
+
+    ensureSleepTimerTicker();
+    if (!settings.silentStatus) {
+      setStatusMessage('Timer set for ' + formatTimerDurationLabel(state.timerMinutes) + '. The final minute will fade out softly.', 'neutral');
+    }
+    render();
+    return true;
+  }
+
+  function initSleepTimer() {
+    if (!dom.timerInput) return;
+    dom.timerInput.value = formatTimerInputValue(state.timerMinutes);
+
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) handleSleepTimerTick();
+    });
+    window.addEventListener('pageshow', handleSleepTimerTick);
+    window.addEventListener('focus', handleSleepTimerTick);
+
+    renderTimerPanel();
   }
 
   function deriveIntentFromSources() {
@@ -870,14 +1165,17 @@
     } catch {}
   }
 
-  function fadeOutAndStopSource(sourceNode, gainNode, duration) {
+  function fadeOutAndStopSource(sourceNode, gainNode, duration, options) {
     if (!audioCtx || !sourceNode) return;
+    const settings = options || {};
     const fadeDuration = typeof duration === 'number' ? duration : 0.08;
     const now = audioCtx.currentTime;
     if (gainNode) {
       try {
-        gainNode.gain.cancelScheduledValues(now);
-        gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+        const startingGain = Math.max(0, typeof settings.startValue === 'number' ? settings.startValue : gainNode.gain.value);
+        if (typeof gainNode.gain.cancelAndHoldAtTime === 'function') gainNode.gain.cancelAndHoldAtTime(now);
+        else gainNode.gain.cancelScheduledValues(now);
+        gainNode.gain.setValueAtTime(startingGain, now);
         gainNode.gain.linearRampToValueAtTime(0, now + fadeDuration);
       } catch {}
     }
@@ -1264,6 +1562,7 @@
 
   function renderFrequencyList() {
     const filteredTracks = getFilteredFrequencyTracks();
+    const timerLocked = isTimerFading();
     dom.resultCount.textContent = filteredTracks.length + (filteredTracks.length === 1 ? ' result' : ' results');
     dom.emptyState.hidden = filteredTracks.length !== 0;
 
@@ -1297,7 +1596,7 @@
         '    <button class="card-button" type="button" data-action="select-frequency" data-frequency-id="' + track.id + '">',
         isSelected ? 'Selected' : 'Select',
         '    </button>',
-        '    <button class="card-button primary" type="button" data-action="play-frequency" data-frequency-id="' + track.id + '"' + (isLoading ? ' disabled' : '') + '>',
+        '    <button class="card-button primary" type="button" data-action="play-frequency" data-frequency-id="' + track.id + '"' + (isLoading || timerLocked ? ' disabled' : '') + '>',
         isPlaying ? 'Playing' : 'Play',
         '    </button>',
         '  </div>',
@@ -1307,6 +1606,7 @@
   }
 
   function renderAmbienceList() {
+    const timerLocked = isTimerFading();
     dom.ambienceList.innerHTML = AMBIENCE_TRACKS.map((track) => {
       const asset = getAssetState(track.id);
       const isSelected = track.id === state.selectedAmbienceId;
@@ -1336,7 +1636,7 @@
         '    <button class="card-button" type="button" data-action="select-ambience" data-ambience-id="' + track.id + '">',
         isSelected ? 'Selected' : 'Choose',
         '    </button>',
-        '    <button class="card-button primary" type="button" data-action="play-ambience" data-ambience-id="' + track.id + '"' + (isLoading ? ' disabled' : '') + '>',
+        '    <button class="card-button primary" type="button" data-action="play-ambience" data-ambience-id="' + track.id + '"' + (isLoading || timerLocked ? ' disabled' : '') + '>',
         isPlaying ? 'Playing' : 'Start',
         '    </button>',
         '  </div>',
@@ -1348,6 +1648,7 @@
   function renderSummaryPanels() {
     const selectedFrequency = getSelectedFrequency();
     const selectedAmbience = getSelectedAmbience();
+    const timerLocked = isTimerFading();
 
     dom.selectedFrequencyTitle.textContent = selectedFrequency ? selectedFrequency.title : 'Choose a frequency';
     dom.selectedFrequencyDescription.textContent = selectedFrequency
@@ -1369,10 +1670,13 @@
     dom.ambienceVolumeValue.textContent = formatPercent(state.ambienceVolume);
 
     dom.ambienceEnabled.checked = state.ambienceEnabled;
-    dom.playMainButton.disabled = !selectedFrequency;
-    dom.stopMainButton.disabled = !mainSource;
-    dom.startAmbienceButton.disabled = !selectedAmbience;
-    dom.stopAmbienceButton.disabled = !ambienceSource && !state.ambienceEnabled;
+    dom.playMainButton.disabled = !selectedFrequency || timerLocked;
+    dom.stopMainButton.disabled = !mainSource || timerLocked;
+    dom.startAmbienceButton.disabled = !selectedAmbience || timerLocked;
+    dom.stopAmbienceButton.disabled = (!ambienceSource && !state.ambienceEnabled) || timerLocked;
+    dom.mainVolume.disabled = timerLocked;
+    dom.ambienceEnabled.disabled = timerLocked;
+    dom.ambienceVolume.disabled = timerLocked;
 
     dom.detailTitle.textContent = selectedFrequency ? selectedFrequency.title : 'Choose a frequency';
     dom.detailDescription.textContent = selectedFrequency
@@ -1383,12 +1687,15 @@
     dom.detailAvailability.textContent = getFrequencyAvailabilityLabel(selectedFrequency);
     dom.detailPairing.textContent = getPairingLabel();
 
-    if (mainSource && mainTrackId) dom.selectionBadge.textContent = 'Playing now';
+    if (state.timerPhase === 'fading') dom.selectionBadge.textContent = 'Timer fade-out';
+    else if (mainSource && mainTrackId) dom.selectionBadge.textContent = 'Playing now';
     else if (selectedFrequency) dom.selectionBadge.textContent = 'Selected';
     else dom.selectionBadge.textContent = 'No selection';
 
     dom.statusMessage.textContent = state.statusMessage;
     dom.statusMessage.className = 'status-message' + (state.statusTone === 'error' ? ' error' : '');
+
+    renderTimerPanel();
 
     syncMediaSessionMetadata();
     syncMediaSessionPlaybackState();
@@ -1436,6 +1743,42 @@
       setStatusMessage(ambienceSource ? 'Frequency stopped. Ambience continues.' : 'Frequency stopped.', 'neutral');
       stopMainPlayback();
     });
+
+    if (dom.timerPresets) {
+      dom.timerPresets.addEventListener('click', (event) => {
+        const presetButton = event.target.closest('button[data-timer-minutes]');
+        if (!presetButton || isTimerFading()) return;
+
+        const presetMinutes = clampTimerMinutes(presetButton.getAttribute('data-timer-minutes'));
+        if (!setTimerMinutes(presetMinutes)) return;
+        renderTimerPanel();
+      });
+    }
+
+    if (dom.timerInput) {
+      const syncTimerMinutesFromInput = () => {
+        const inputMinutes = parseTimerInputValue(dom.timerInput.value);
+        if (!inputMinutes) return;
+        if (!setTimerMinutes(inputMinutes)) return;
+        renderTimerPanel();
+      };
+
+      dom.timerInput.addEventListener('input', syncTimerMinutesFromInput);
+      dom.timerInput.addEventListener('change', syncTimerMinutesFromInput);
+    }
+
+    if (dom.startTimerButton) {
+      dom.startTimerButton.addEventListener('click', () => {
+        const inputMinutes = parseTimerInputValue(dom.timerInput.value);
+        startSleepTimer(inputMinutes);
+      });
+    }
+
+    if (dom.cancelTimerButton) {
+      dom.cancelTimerButton.addEventListener('click', () => {
+        cancelSleepTimer();
+      });
+    }
 
     dom.mainVolume.addEventListener('input', (event) => {
       state.mainVolume = Number(event.target.value);
@@ -1526,6 +1869,13 @@
     dom.playerState = document.getElementById('playerState');
     dom.ambienceState = document.getElementById('ambienceState');
     dom.statusMessage = document.getElementById('statusMessage');
+    dom.timerSummary = document.getElementById('timerHeading');
+    dom.timerBadge = document.getElementById('timerBadge');
+    dom.timerSupport = document.getElementById('timerSupport');
+    dom.timerPresets = document.getElementById('timerPresets');
+    dom.timerInput = document.getElementById('timerInput');
+    dom.startTimerButton = document.getElementById('startTimerButton');
+    dom.cancelTimerButton = document.getElementById('cancelTimerButton');
 
     dom.resultCount = document.getElementById('resultCount');
     dom.searchInput = document.getElementById('searchInput');
@@ -1769,6 +2119,7 @@
     ensureMediaSessionHandlers();
     initLandscapeViz();
     initTabs();
+    initSleepTimer();
     initNightMode();
     initWakeLock();
     render();
