@@ -531,6 +531,20 @@
     } catch {}
   }
 
+  function buildSoftFadeCurve(startValue, pointCount) {
+    const safeStartValue = Math.max(0, Number(startValue) || 0);
+    const totalPoints = Math.max(2, pointCount || 128);
+    const curve = new Float32Array(totalPoints);
+
+    for (let index = 0; index < totalPoints; index += 1) {
+      const progress = index / (totalPoints - 1);
+      curve[index] = safeStartValue * Math.pow(1 - progress, 1.35);
+    }
+
+    curve[totalPoints - 1] = 0;
+    return curve;
+  }
+
   function pauseAudioOutputIfIdle() {
     if (!audioOut) return;
     if (hasManagedPlayback()) {
@@ -964,16 +978,36 @@
       return;
     }
 
+    const now = Date.now();
+    const scheduledStopAt = state.timerEndsAt || (now + TIMER_FADE_MS);
+    const remainingFadeMs = Math.max(50, scheduledStopAt - now);
+
     state.timerPhase = 'fading';
     state.timerEndsAt = 0;
-    state.timerFadeEndsAt = Date.now() + TIMER_FADE_MS;
+    state.timerFadeEndsAt = now + remainingFadeMs;
 
-    if (mainSource) fadeOutAndStopSource(mainSource, mainGain, TIMER_FADE_SECONDS, { startValue: state.mainVolume });
-    if (ambienceSource) fadeOutAndStopSource(ambienceSource, ambienceGain, TIMER_FADE_SECONDS, { startValue: state.ambienceVolume });
+    if (mainSource) {
+      fadeOutAndStopSource(mainSource, mainGain, remainingFadeMs / 1000, {
+        startValue: mainGain ? mainGain.gain.value : state.mainVolume,
+        curve: 'soft-stop'
+      });
+    }
+    if (ambienceSource) {
+      fadeOutAndStopSource(ambienceSource, ambienceGain, remainingFadeMs / 1000, {
+        startValue: ambienceGain ? ambienceGain.gain.value : state.ambienceVolume,
+        curve: 'soft-stop'
+      });
+    }
 
     clearSleepTimerFinalizeTimeout();
-    sleepTimerFinalizeId = window.setTimeout(finalizeSleepTimerFadeOut, TIMER_FADE_MS + 250);
-    setStatusMessage('Timer ending. Playback will fade out over the next minute.', 'neutral');
+    sleepTimerFinalizeId = window.setTimeout(finalizeSleepTimerFadeOut, remainingFadeMs + 250);
+    setStatusMessage(
+      remainingFadeMs >= (TIMER_FADE_MS - 1000)
+        ? 'Timer ending. Playback is now fading out across the final minute.'
+        : 'Timer ending. Playback is catching up and will stop shortly.'
+      ,
+      'neutral'
+    );
     syncMediaSessionMetadata();
     syncMediaSessionPlaybackState();
     render();
@@ -987,9 +1021,12 @@
     }
 
     const now = Date.now();
-    if (state.timerPhase === 'armed' && state.timerEndsAt && now >= state.timerEndsAt) {
-      beginSleepTimerFadeOut();
-      return;
+    if (state.timerPhase === 'armed' && state.timerEndsAt) {
+      const fadeStartsAt = Math.max(0, state.timerEndsAt - TIMER_FADE_MS);
+      if (now >= fadeStartsAt) {
+        beginSleepTimerFadeOut();
+        return;
+      }
     }
 
     if (state.timerPhase === 'fading' && state.timerFadeEndsAt && now >= state.timerFadeEndsAt) {
@@ -1017,9 +1054,10 @@
 
     ensureSleepTimerTicker();
     if (!settings.silentStatus) {
-      setStatusMessage('Timer set for ' + formatTimerDurationLabel(state.timerMinutes) + '. The final minute will fade out softly.', 'neutral');
+      setStatusMessage('Timer set for ' + formatTimerDurationLabel(state.timerMinutes) + '. Playback will fade out during the final minute.', 'neutral');
     }
     render();
+    handleSleepTimerTick();
     return true;
   }
 
